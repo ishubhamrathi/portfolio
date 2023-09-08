@@ -65,8 +65,7 @@
     justify-content: center;
     align-items: center;
 }
-.navbar .link{
-}
+
 @media screen and (max-width: 1200px){
     .left{
         width: 80%;
