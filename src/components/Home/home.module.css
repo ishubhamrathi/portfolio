@@ -1,0 +1,134 @@
+.container{
+    background-color: white;
+    /* background-color: red; */
+    display: flex;
+    flex-direction: row;
+    
+}
+
+.left{
+    background: white;
+    /* background-color: orange; */
+    width: 85%;
+    display: flex;
+    align-items: center;
+    padding-left: 150px;
+}
+.right{
+    width: 15%;
+    background: white;
+    /* background-color: green; */
+    height: 100vh;
+}
+.greeting{
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: 500;
+    font-size: 32px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+.name{
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 4rem;
+    font-weight: 900;
+    line-height: 100%;
+}
+.text {
+    display: inline;
+    width: 180px;
+    border-bottom: 1px solid rgb(167, 167, 167);
+}
+.text:hover{
+    border-bottom-width: 2px;
+    width: 200px;
+}
+.text input{
+    background: none;
+    outline: none;
+    border: none;
+    font-size: larger;    
+}
+.navbar{
+    background-color: black;
+    height: calc(100% - 80px);
+    margin: 20px;
+    margin: 40px 40px 40px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+
+}
+.navlink{
+    color: white;
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.navbar .link{
+}
+@media screen and (max-width: 1200px){
+    .left{
+        width: 80%;
+    }
+    .right{
+        width: 20%;
+    }
+}
+@media screen and (max-width: 900px){
+    .left{
+        width: 80%;
+    }
+    .right{
+        width: 20%;
+    }
+    .navbar .navlink .link{
+        display: none;
+    }
+    
+}
+@media screen and (max-width: 800px){
+    .left{
+        padding-left: 60px;
+    }
+}
+@media screen and (max-width: 600px){
+    .left{
+        width: 70%;
+    }
+    .right{
+        width: 30%;
+    }
+    .navbar .navlink .link{
+        display: none;
+    }
+}
+@media screen and (max-width: 500px){
+    .container{
+        flex-direction: column;
+    }
+    .left{
+        height: 90vh;
+    }
+    .right{
+        width: 100%;
+        height: 100%;
+    }
+   
+    .navbar {
+        flex-direction: row;
+        height: auto;
+        /* width: calc(100vw-40px); */
+        height: 40px;
+        margin: 10px 10px 10px 10px;
+    }
+    
+    @media screen and (max-width: 400px){
+        .greeting{
+            font-size: 25px;
+        }
+        .name{
+            font-size: 50px;
+        }
+    }
+}
