@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import styles from './Project.module.css'
 import {AiFillGithub, AiOutlineCode, AiFillInfoCircle} from 'react-icons/ai'
 import {BiLinkAlt} from 'react-icons/bi'
-import { current } from '@reduxjs/toolkit'
 
 const Project = (props) => {
   const {title, description, img, github_link, deployed_link, tech}=props;
@@ -16,10 +15,7 @@ const Project = (props) => {
       setIsActive(savedIsActive === 'true');
     }
   }, []);
-// window.onload({
-//   const [isActive, setIsActive]=useState(false);
-// })
-  return (
+return (
     <div className={styles.container} onClick={handleClick}>
       <div className={styles.bgimg}><img src={img} alt=""/></div>
       <div className={styles.title}>{title}</div> 
