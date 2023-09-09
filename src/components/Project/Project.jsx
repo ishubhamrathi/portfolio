@@ -2,9 +2,11 @@ import React from 'react'
 import styles from './Project.module.css'
 import {AiFillGithub, AiOutlineCode} from 'react-icons/ai'
 import {BiLinkAlt} from 'react-icons/bi'
+import Modal from '../Modal/Modal'
 
 const Project = (props) => {
-  const {title, img, github_link, deployed_link, tech}=props;
+  const {show, title, img, github_link, deployed_link, tech}=props;
+  
   return (
     <div className={styles.container}>
       <div className={styles.bgimg}><img src={img} alt=""/></div>
@@ -13,8 +15,10 @@ const Project = (props) => {
         <div className={styles.deploy}><a href={deployed_link}><BiLinkAlt/>&nbsp;View</a></div>
       </div>
       <div className={styles.title}>{title}</div> 
-      <div className={styles.tech}> <div className={styles.techwrapper}><AiOutlineCode/>:&nbsp;{tech.map((item)=> {return <span>{item}&nbsp;</span>})}</div>
+      <div className={styles.tech}>
+        <div className={styles.techwrapper}><AiOutlineCode/>:&nbsp;{tech.map((item)=> {return <span>{item}&nbsp;</span>})}</div>
       </div>
+      <Modal show={show}/>
     </div>
   )
 }

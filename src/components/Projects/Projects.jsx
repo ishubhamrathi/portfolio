@@ -1,20 +1,27 @@
-import React from 'react'
+import React, { useState } from 'react'
 import styles from './projects.module.css'
 import Project from '../Project/Project'
 const Projects = () => {
+  const [show, setShow] = useState(false);
+  const showModal=()=>{
+    setShow(true);
+  }
   return (
     <div className={styles.container}>
       <div className={styles.title} id="projects">Projects</div>
       <div className={styles.list}>
-          <Project 
+          {/* <button onClick={e=>{showModal()}}> */}
+            <Project 
             title="Music App"
             description="Lipsum Lorem"
             img="https://i.ibb.co/mJ45n93/project1.png"
             tech={["ReactJs"]}
             github_link="https://github.com/ishubhamrathi/portfolio"
             deployed_link="https://musicapp009.netlify.app"
+            show={show}
           />
-
+          {/* </button> */}
+          {/* <button onClick={e=>{showModal()}}> */}
           <Project
             title="LPU UMS"
             description="Lipsum Lorem"
@@ -22,8 +29,9 @@ const Projects = () => {
             tech={["Python", "Streamlit"]}
             github_link="https://github.com/ishubhamrathi/UMS"
             deployed_link="https://lpuums.streamlit.app"
+            show={show}
           />
-
+          {/* </button> */}
           <Project
             title="Resume Builder"
             description="Lipsum Lorem"

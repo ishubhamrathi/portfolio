@@ -4,6 +4,7 @@ import {AiFillPlayCircle, AiFillHome} from 'react-icons/ai'
 import {GoProjectSymlink} from'react-icons/go'
 import {BsFillInfoCircleFill} from "react-icons/bs"
 import {IoShareSocialOutline} from "react-icons/io5"
+import Typewriter from 'typewriter-effect';
 
 const Home =()=>{
     return (
@@ -12,7 +13,23 @@ const Home =()=>{
                 <div className={styles.left}>
                     <div className={styles.warpper}>
                         <div className={styles.greeting}>Hi, I am</div>
-                        <div className={styles.name}>Shubham Rathi</div>
+                        {/* <div className={styles.name}>Shubham Rathi</div> */}
+                        <div className={styles.name}>
+                        <Typewriter
+                            options={{
+                                loop: true,
+                            }}
+                            onInit={(typewriter) => {
+                                typewriter.typeString('Shubham Rathi')
+                                .pauseFor(1000)
+                                .deleteAll()
+                                .typeString('Full Stack Developer')
+                                .pauseFor(1000)
+                                .deleteAll()
+                                .start();
+                            }}
+                            />
+                        </div>
                         <br></br><br></br>
                         <div className={styles.text}><AiFillPlayCircle/><input type="text" placeholder='Tell me what you need!'/></div>
                     </div>
