@@ -14,14 +14,15 @@
 }
 .container .title{
     text-align: left;
-    padding-left: 10px;
+    /* padding-left: 10px; */
+    padding: 10px;
     text-transform:capitalize;
     z-index: 2;
     position: relative;
     font-size: 18px;
     font-weight: 500;
-    background: black;
-    /* letter-spacing: 0.5rem; */
+    background: rgb(24, 23, 23);
+    letter-spacing: 0.2rem;
     /* line-height: 1.5rem; */
     margin-bottom: 10px;
 }
@@ -56,9 +57,9 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     width: 100%;
-    background: white;
+    background: black;
     opacity: 0.8;
-    color: black;
+    color: white;
     border-bottom-left-radius: 16px;
     border-bottom-right-radius: 16px;
     font-weight: 500;
@@ -80,7 +81,7 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;    
-    height: 73%;
+    height: 68%;
     font-size: 18px;
     visibility: hidden;
     /* display: none; */

@@ -4,7 +4,7 @@ import {AiFillGithub,AiFillLinkedin,AiFillInstagram,AiFillMail } from 'react-ico
 const Social = () => {
   return (
     <div className={styles.container}>
-    <div className={styles.title}>Follow Me</div>
+    <div className={styles.title} id="social">Follow Me</div>
     <div className={styles.wrapper}>
         <div className={styles.list}>
             <div className={styles.items}><a href="https://github.com/ishubhamrathi"><AiFillGithub/></a></div>

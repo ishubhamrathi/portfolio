@@ -19,10 +19,10 @@ const Home =()=>{
                 </div>
                 <div className={styles.right}>
                     <nav className={styles.navbar}>
-                        <li className={styles.navlink}><AiFillHome/>&nbsp;<span className={styles.link}>Home</span></li>
-                        <li className={styles.navlink}><GoProjectSymlink/>&nbsp;<span className={styles.link}>Projects</span></li>
-                        <li className={styles.navlink}><BsFillInfoCircleFill/>&nbsp;<span className={styles.link}>About</span></li>
-                        <li className={styles.navlink}><IoShareSocialOutline/>&nbsp;<span className={styles.link}>Contact</span></li>
+                        <li className={styles.navlink}><a href="/"><AiFillHome/>&nbsp;<span className={styles.link}>Home</span></a></li>
+                        <li className={styles.navlink}><a href="#projects"><GoProjectSymlink/>&nbsp;<span className={styles.link}>Projects</span></a></li>
+                        <li className={styles.navlink}><a href="#about"><BsFillInfoCircleFill/>&nbsp;<span className={styles.link}>About</span></a></li>
+                        <li className={styles.navlink}><a href="#social"><IoShareSocialOutline/>&nbsp;<span className={styles.link}>Contact</span></a></li>
                     </nav>
                 </div>
             </div>

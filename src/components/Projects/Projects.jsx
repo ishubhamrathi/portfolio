@@ -4,7 +4,7 @@ import Project from '../Project/Project'
 const Projects = () => {
   return (
     <div className={styles.container}>
-      <div className={styles.title}>Projects</div>
+      <div className={styles.title} id="projects">Projects</div>
       <div className={styles.list}>
           <Project title="Music App" description="Lipsum Lorem"
             img="https://i.ibb.co/mJ45n93/project1.png"
