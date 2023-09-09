@@ -1,0 +1,86 @@
+.container{
+    color: white;
+    width: 300px;
+    height: 200px;
+    /* border: 1px solid black; */
+    /* From https://css.glass */
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    margin: 20px;
+}
+.container .title{
+    padding-top: 10px;
+    text-align: center;
+    text-transform: uppercase;
+    z-index: 2;
+    position: relative;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.009em;
+}
+
+.container img{
+    height: 100%;
+    width: 100%;
+    background-size: cover;
+    opacity: 0.4;
+    z-index: 1;
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 16px;
+    transition: 1sec ease-in-out;
+    filter: grayscale(100%);
+    filter: saturate(2.2);
+
+}
+.container:hover img{
+    opacity: 0.6;
+    filter: blur(3px);
+}
+.container .tech {
+    position: absolute;
+    left: 4%;
+    bottom: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    width: 90%;
+}
+/* .container .tech:hover { */
+/* } */
+.container .links {
+    position:relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;    
+    height: 70%;
+    font-size: 18px;
+    visibility: hidden;
+    /* display: none; */
+    z-index: 4;
+    margin: 0;
+    transition: 1s ease-in-out;
+}
+
+.container:hover .links{
+    visibility: visible;
+    z-index: 4;
+    color: rgb(197, 197, 197);
+}
+.container .github , .deploy {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.container .github:hover, .deploy:hover{
+    font-size: larger;
+}

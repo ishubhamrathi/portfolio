@@ -1,6 +1,7 @@
 .container{
     background: black;
     min-height: 400px;
+
 }
 .title{
     color: rgb(255, 255, 255);
@@ -13,4 +14,12 @@
 }
 .title::before{
     content: " //";
+}
+.list{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-grow: 1;
+    position: relative;
+    justify-content: space-around;
 }
