@@ -13,21 +13,24 @@
     margin: 20px;
 }
 .container .title{
-    padding-top: 10px;
-    text-align: center;
-    text-transform: uppercase;
+    text-align: left;
+    padding-left: 10px;
+    text-transform:capitalize;
     z-index: 2;
     position: relative;
     font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0.009em;
+    font-weight: 500;
+    background: black;
+    /* letter-spacing: 0.5rem; */
+    /* line-height: 1.5rem; */
+    margin-bottom: 10px;
 }
 
 .container img{
     height: 100%;
     width: 100%;
     background-size: cover;
-    opacity: 0.4;
+    opacity: 0.5;
     z-index: 1;
     position: absolute;
     top: 0;
@@ -38,13 +41,13 @@
     filter: saturate(2.2);
 
 }
-.container:hover img{
+.container:hover img, .container:active img{
     opacity: 0.6;
     filter: blur(3px);
 }
 .container .tech {
     position: absolute;
-    left: 4%;
+    left: 0%;
     bottom: 0;
     z-index: 3;
     display: flex;
@@ -52,17 +55,32 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    width: 90%;
+    width: 100%;
+    background: white;
+    opacity: 0.8;
+    color: black;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    font-weight: 500;
+    height: 30px;
+
 }
-/* .container .tech:hover { */
-/* } */
+.container .tech .techwrapper{
+    padding-left: 10px;
+    display: flex;
+    align-items: center;
+}
+.container:hover .tech {
+    opacity: 1;
+}
+
 .container .links {
     position:relative;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;    
-    height: 70%;
+    height: 73%;
     font-size: 18px;
     visibility: hidden;
     /* display: none; */
@@ -71,16 +89,21 @@
     transition: 1s ease-in-out;
 }
 
-.container:hover .links{
+.container .links a{
+    text-decoration: none;
+    color: white;
+}
+
+.container:hover .links a, .container:active a{
     visibility: visible;
     z-index: 4;
-    color: rgb(197, 197, 197);
 }
 .container .github , .deploy {
     display: flex;
     justify-content: center;
     align-items: center;
 }
-.container .github:hover, .deploy:hover{
+.container .github:hover a, .deploy:hover a, .github:active a, .deploy:active a{
     font-size: larger;
+    color: rgb(190, 190, 190);
 }

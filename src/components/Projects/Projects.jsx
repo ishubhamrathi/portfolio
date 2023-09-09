@@ -8,20 +8,20 @@ const Projects = () => {
       <div className={styles.list}>
           <Project title="Music App" description="Lipsum Lorem"
             img="https://i.ibb.co/mJ45n93/project1.png"
-            tech={["ReactJs"]} github_link=""
-            deployed_link=""
+            tech={["ReactJs"]} github_link="https://github.com/ishubhamrathi/portfolio"
+            deployed_link="https://musicapp009.netlify.app"
           />
 
-          <Project title="Ums Web App" description="Lipsum Lorem"
-            img="https://images.unsplash.com/photo-1579353977828-2a4eab540b9a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80"
-            tech={["ReactJs", "NodeJs"]} github_link=""
-            deployed_link=""
+          <Project title="LPU UMS" description="Lipsum Lorem"
+            img="https://i.ibb.co/K5gYJKh/project2.png"
+            tech={["Python", "Streamlit"]} github_link="https://github.com/ishubhamrathi/UMS"
+            deployed_link="https://lpuums.streamlit.app"
           />
 
-          <Project title="Ums Web App" description="Lipsum Lorem"
-            img="https://images.unsplash.com/photo-1579353977828-2a4eab540b9a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80"
-            tech={["ReactJs","sdsdsd","sdsdsd","sdsdsd","sdsdsd","sdsdsd","sdsdsd","sdsdsd"]} github_link=""
-            deployed_link=""
+          <Project title="Resume Builder" description="Lipsum Lorem"
+            img="https://i.ibb.co/0DX6Vt9/project3.png"
+            tech={["ReactJs","Nodejs"]} github_link="https://github.com/ishubhamrathi/resume-builder"
+            deployed_link="https://resumebuilder.netlify.app"
           />
       </div>
     </div>
