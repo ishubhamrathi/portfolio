@@ -58,7 +58,7 @@
     text-overflow: ellipsis;
     width: 100%;
     background: black;
-    opacity: 0.8;
+    /* opacity: 0.8; */
     color: white;
     border-bottom-left-radius: 16px;
     border-bottom-right-radius: 16px;
