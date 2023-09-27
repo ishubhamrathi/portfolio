@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import styles from './Project.module.css'
-import {AiFillGithub, AiOutlineCode, AiFillInfoCircle} from 'react-icons/ai'
+import {AiFillGithub, AiOutlineCode} from 'react-icons/ai'
 import {BiLinkAlt} from 'react-icons/bi'
 
 const Project = (props) => {
@@ -25,10 +25,18 @@ return (
       </div>
       <div className={isActive ? `${styles.info}` :`${styles.hidden}`}>
         <div className={styles.desc}>
-         <AiFillInfoCircle/>&nbsp;Description:&nbsp;{description}
+      Description:&nbsp;{description}
         </div>
         <div className={styles.tech}>
          <AiOutlineCode/>:&nbsp;{tech.map((item)=> {return <span>{item}&nbsp;</span>})}
+        </div>
+        <div className={styles.desclinks}>
+          <span className={styles.desclink}>
+          <a href={github_link}><AiFillGithub/>&nbsp;Github</a>
+          </span>
+          &nbsp;
+          <span className={styles.desclink}>
+          <a href={deployed_link}><BiLinkAlt/>&nbsp;View</a>          </span>
         </div>
       </div>
       
