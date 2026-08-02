@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, useLocation, matchPath } from 'react-router-dom'
 import { SoundProvider, useSound } from '@/context/SoundProvider'
 import GlobalEffects from '@/components/layout/GlobalEffects'
 import SiteNav from '@/components/layout/SiteNav'
@@ -10,6 +10,7 @@ import About from '@/components/About/About'
 import Stats from '@/components/Stats/Stats'
 import Blog from '@/components/Blog/Blog'
 import Social from '@/components/Social/Social'
+import ProjectDetailPage from '@/components/Project/ProjectDetailPage'
 import { getFeatures, getHome } from '@/services/contentApi'
 
 function AppShell() {
@@ -64,11 +65,23 @@ function AppShell() {
   )
 }
 
+function AppContent() {
+  const location = useLocation()
+  const detailMatch = matchPath('/projects/:id', location.pathname)
+
+  return (
+    <>
+      <AppShell />
+      {detailMatch && <ProjectDetailPage id={detailMatch.params.id} />}
+    </>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <SoundProvider>
-        <AppShell />
+        <AppContent />
       </SoundProvider>
     </BrowserRouter>
   )

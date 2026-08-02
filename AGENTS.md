@@ -8,7 +8,7 @@ A personal portfolio / resume site for **Shubham Rathi** ("SR", github: `ishubha
 
 - Framework: **React 19** + **Vite 6** (NOT Create React App — the README is stale boilerplate).
 - Styling: **Tailwind CSS v4** (via `@tailwindcss/vite`) + CSS variables in `src/index.css` + co-located CSS Modules for a few sections.
-- Routing: `react-router-dom` (BrowserRouter, but only used as a wrapper — the page is effectively one long scroll page using anchor `#section` links).
+- Routing: `react-router-dom` (BrowserRouter). The page is one long scroll page using anchor `#section` links, plus a client-side detail route `/projects/:id` that opens as a full-screen page (home stays mounted underneath so closing it never re-mounts/refreshes the home sections).
 - Path alias: `@` → `src/` (see `vite.config.js`, `jsconfig.json`).
 - Build target: **Netlify** (`netlify.toml` → `npm run build`, publish `dist`).
 
@@ -37,7 +37,8 @@ src/
       SiteNav.jsx          # Fixed top nav + sound mute toggle
       GlobalEffects.jsx    # Background (Silk WebGL / gradient fallback), TargetCursor, Noise overlay
     Home/  Projects/  About/  Stats/  Blog/  Social/   # Page sections (each own folder + .module.css)
-    Project/Project.jsx    # Project card + detail modal
+    Project/Project.jsx          # Project card (navigates to /projects/:id)
+    Project/ProjectDetailPage.jsx # Full-screen detail route (rich description, carousel, close cross)
     <effect components>/   # Reusable animation/UI primitives (BlurText, DecryptedText, GlassSurface, Magnet, etc.)
   context/SoundProvider.jsx  # howler-based SFX + ambient audio; exposes useSound() hook
   services/contentApi.js   # ALL data access. Reads content.json + optional backend API. Central content mapping lives here.
@@ -52,7 +53,7 @@ src/
 - `contentApi.js` is the **only** module that should touch data. Components call `getHome()`, `getAbout()`, `getSocial()`, `getStatsConfig()`, `getProjects()`, `getCategories()`, `getWidgetCatalog()`, `getBlogPosts()`, `getFormspreeEndpoint()`.
 - Home/About/Social/Stats always come from `src/resources/content.json` (not yet on backend).
 - Projects/Blog prefer a backend API at `VITE_API_BASE` (default `http://localhost:8080`) and **silently fall back** to `content.json` on failure. A "Source: live API / content.json fallback" label is shown in the Projects section.
-- `GET /api/portfolio/projects` returns `{ projects: { title, items: [...] } }` (public schema, pre-filtered to `visibility_status = 'SHOW'`, sorted by `sort_order`; params `categoryPath` + `limit` ≤ 200). The Projects filter bar is driven by `GET /api/portfolio/categories` (`categoryPath` chips) and hides when that fails. Each item's `status`/`topCategory`/`visibility` are `{ value, label }` objects and `tech` is `[{ value, label, icon }]` (icon = URL); `shortDescription`/`description` are HTML (`description` is rendered rich-text in the modal, `shortDescription` is tag-stripped for the card). `mapApiProject()` normalizes all of this (`tech` → `[{ code, label, icon }]`) and tolerates the legacy camelCase/string shape, with static `STATUS_LABELS` / `TOP_CATEGORY_LABELS` / `TECH_LABELS` as fallback. `getWidgetCatalog()` / `buildTechLookup()` are retained but not required for rendering.
+- `GET /api/portfolio/projects` returns `{ projects: { title, items: [...] } }` (public schema, pre-filtered to `visibility_status = 'SHOW'`, sorted by `sort_order`; params `categoryPath` + `limit` ≤ 200). The Projects filter bar is driven by `GET /api/portfolio/categories` (`categoryPath` chips) and hides when that fails. Each item's `status`/`topCategory`/`visibility` are `{ value, label }` objects and `tech` is `[{ value, label, icon }]` (icon = URL); `shortDescription`/`description` are HTML (`description` is rendered rich-text on the `/projects/:id` page, `shortDescription` is tag-stripped for the card). `mapApiProject()` normalizes all of this (`tech` → `[{ code, label, icon }]`) and tolerates the legacy camelCase/string shape, with static `STATUS_LABELS` / `TOP_CATEGORY_LABELS` / `TECH_LABELS` as fallback. `getWidgetCatalog()` / `buildTechLookup()` are retained but not required for rendering.
 - API→UI field mapping lives in `mapApiProject()` and `mapLegacyProject()` in `contentApi.js` (accepts both the refreshed snake_case schema and legacy camelCase). If you change backend fields, update the mapping + `src/resources/README.md`.
 
 ### Feature flags

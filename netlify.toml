@@ -4,3 +4,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# SPA fallback: client-side routes (e.g. /projects/:id) serve index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
