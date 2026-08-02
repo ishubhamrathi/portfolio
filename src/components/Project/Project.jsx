@@ -7,18 +7,39 @@ import { BiLinkAlt } from 'react-icons/bi'
 import { IoMdClose } from 'react-icons/io'
 import { useSound } from '@/context/SoundProvider'
 
+function TechIcon({ icon }) {
+  if (!icon) return null
+  if (/^https?:\/\//i.test(icon)) {
+    return (
+      <img src={icon} alt="" loading="lazy" className="mr-1 inline-block h-3.5 w-3.5 align-[-2px]" />
+    )
+  }
+  return <span className="mr-1">{icon}</span>
+}
+
+function stripHtml(html) {
+  return (html || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export default function ProjectCard({ project }) {
   const [open, setOpen] = useState(false)
   const { playClick } = useSound()
   const {
     title,
+    shortDescription,
     description,
     image,
+    carouselImages = [],
     tech = [],
     github,
     deployed,
     status,
+    statusLabel,
     categoryPath,
+    topCategoryLabel,
   } = project
 
   return (
@@ -47,24 +68,29 @@ export default function ProjectCard({ project }) {
               ) : (
                 <div className="flex h-full items-center justify-center text-dim">No image</div>
               )}
-              {status && (
+              {(statusLabel || status) && (
                 <span className="absolute left-3 top-3 rounded-full border border-border bg-black/70 px-3 py-1 text-xs uppercase tracking-wider text-fg">
-                  {status}
+                  {statusLabel || status}
                 </span>
               )}
             </div>
             <div className="space-y-3 p-5">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="font-display text-xl font-semibold text-fg">{title}</h3>
-                {categoryPath && (
-                  <span className="shrink-0 text-xs uppercase tracking-wider text-dim">{categoryPath}</span>
+                {(topCategoryLabel || categoryPath) && (
+                  <span className="shrink-0 text-xs uppercase tracking-wider text-dim">
+                    {topCategoryLabel || categoryPath}
+                  </span>
                 )}
               </div>
-              <p className="line-clamp-3 text-sm leading-relaxed text-muted">{description}</p>
+              <p className="line-clamp-3 text-sm leading-relaxed text-muted">
+                {stripHtml(shortDescription || description)}
+              </p>
               <div className="flex flex-wrap gap-2">
-                {tech.slice(0, 4).map((t) => (
-                  <span key={t} className="rounded-full border border-border px-2.5 py-1 text-xs text-muted">
-                    {t}
+                {tech.slice(0, 6).map((t) => (
+                  <span key={t.code} className="rounded-full border border-border px-2.5 py-1 text-xs text-muted">
+                    <TechIcon icon={t.icon} />
+                    {t.label}
                   </span>
                 ))}
               </div>
@@ -97,15 +123,37 @@ export default function ProjectCard({ project }) {
               >
                 <IoMdClose size={22} />
               </button>
-              {image && (
-                <img src={image} alt={title} className="mb-5 max-h-56 w-full rounded-2xl object-cover grayscale" />
+              {carouselImages.length > 0 ? (
+                <div className="mb-5 grid grid-cols-3 gap-2">
+                  {carouselImages.map((src) => (
+                    <img
+                      key={src}
+                      src={src}
+                      alt={title}
+                      loading="lazy"
+                      className="h-24 w-full rounded-xl object-cover grayscale"
+                    />
+                  ))}
+                </div>
+              ) : (
+                image && (
+                  <img
+                    src={image}
+                    alt={title}
+                    className="mb-5 max-h-56 w-full rounded-2xl object-cover grayscale"
+                  />
+                )
               )}
               <h3 className="font-display text-2xl font-semibold">{title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-muted">{description}</p>
+              <div
+                className="project-rich-text mt-3 text-sm leading-relaxed text-muted"
+                dangerouslySetInnerHTML={{ __html: description }}
+              />
               <div className="mt-4 flex flex-wrap gap-2">
                 {tech.map((t) => (
-                  <span key={t} className="rounded-full border border-border px-2.5 py-1 text-xs text-muted">
-                    {t}
+                  <span key={t.code} className="rounded-full border border-border px-2.5 py-1 text-xs text-muted">
+                    <TechIcon icon={t.icon} />
+                    {t.label}
                   </span>
                 ))}
               </div>
