@@ -1,49 +1,155 @@
-import React from 'react'
-import styles from './home.module.css'
-import {AiFillPlayCircle, AiFillHome} from 'react-icons/ai'
-import {GoProjectSymlink} from'react-icons/go'
-import {BsFillInfoCircleFill} from "react-icons/bs"
-import {IoShareSocialOutline} from "react-icons/io5"
-import Typewriter from 'typewriter-effect';
+import { useEffect, useState } from 'react'
+import GlassSurface from '@/components/GlassSurface'
+import TextType from '@/components/TextType'
+import BlurText from '@/components/BlurText'
+import Magnet from '@/components/Magnet'
+import SpecularButton from '@/components/SpecularButton'
+import { getFormspreeEndpoint, getHome } from '@/services/contentApi'
+import { useSound } from '@/context/SoundProvider'
 
-const Home =()=>{
+export default function Home() {
+  const [home, setHome] = useState(null)
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitMessage, setSubmitMessage] = useState('')
+  const { playClick, playSuccess, unlock } = useSound()
+
+  useEffect(() => {
+    getHome().then(setHome)
+  }, [])
+
+  if (!home) {
     return (
-        <React.Fragment>
-            <div className={styles.container}>
-                <div className={styles.left}>
-                    <div className={styles.warpper}>
-                        <div className={styles.greeting}>Hi, I am</div>
-                        {/* <div className={styles.name}>Shubham Rathi</div> */}
-                        <div className={styles.name}>
-                        <Typewriter
-                            options={{
-                                loop: true,
-                            }}
-                            onInit={(typewriter) => {
-                                typewriter.typeString('Shubham Rathi')
-                                .pauseFor(1000)
-                                .deleteAll()
-                                .typeString('Full Stack Developer')
-                                .pauseFor(1000)
-                                .deleteAll()
-                                .start();
-                            }}
-                            />
-                        </div>
-                        <br></br><br></br>
-                        <div className={styles.text}><AiFillPlayCircle/><input type="text" placeholder='Tell me what you need!'/></div>
-                    </div>
-                </div>
-                <div className={styles.right}>
-                    <nav className={styles.navbar}>
-                        <li className={styles.navlink}><a href="/"><AiFillHome/>&nbsp;<span className={styles.link}>Home</span></a></li>
-                        <li className={styles.navlink}><a href="#projects"><GoProjectSymlink/>&nbsp;<span className={styles.link}>Projects</span></a></li>
-                        <li className={styles.navlink}><a href="#about"><BsFillInfoCircleFill/>&nbsp;<span className={styles.link}>About</span></a></li>
-                        <li className={styles.navlink}><a href="#social"><IoShareSocialOutline/>&nbsp;<span className={styles.link}>Contact</span></a></li>
-                    </nav>
-                </div>
-            </div>
-        </React.Fragment>
+      <section id="home" className="relative flex min-h-screen items-center px-6 pt-28">
+        <div className="h-10 w-64 animate-pulse rounded bg-white/10" />
+      </section>
     )
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    const endpoint = getFormspreeEndpoint()
+    try {
+      if (!endpoint) {
+        setSubmitMessage('Add VITE_FORMSPREE_ID to enable sending.')
+      } else {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        })
+        if (response.ok) {
+          setSubmitMessage("Thank you! I'll get back to you soon.")
+          setFormData({ name: '', email: '', message: '' })
+          playSuccess()
+          setTimeout(() => setIsFormOpen(false), 2000)
+        } else {
+          setSubmitMessage('Something went wrong. Please try again.')
+        }
+      }
+    } catch {
+      setSubmitMessage('Something went wrong. Please try again.')
+    }
+    setIsSubmitting(false)
+    setTimeout(() => setSubmitMessage(''), 3500)
+  }
+
+  return (
+    <section id="home" className="relative flex min-h-screen items-center px-6 pb-20 pt-28 md:px-12 lg:px-20">
+      <div className="relative z-10 max-w-3xl">
+        <p className="mb-3 font-body text-sm uppercase tracking-[0.35em] text-muted">{home.greeting}</p>
+        <h1 className="font-display text-5xl font-bold leading-[1.05] text-fg md:text-7xl">
+          <BlurText
+            text={home.name}
+            delay={60}
+            animateBy="words"
+            direction="top"
+            className="justify-start text-left"
+          />
+        </h1>
+        <div className="mt-6 min-h-[2.5rem] font-display text-2xl text-muted md:text-3xl">
+          <TextType
+            text={home.typewriter}
+            typingSpeed={55}
+            deletingSpeed={30}
+            pauseDuration={1400}
+            loop
+            className="text-muted"
+            cursorClassName="text-fg"
+          />
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-start gap-4">
+          <Magnet padding={60} magnetStrength={3}>
+            <SpecularButton
+              className="cursor-target"
+              onClick={() => {
+                unlock()
+                playClick()
+                setIsFormOpen((v) => !v)
+              }}
+              size="md"
+              textColor="#f5f5f5"
+              lineColor="#ffffff"
+              baseColor="#3a3a3a"
+            >
+              {home.contactButton || 'Get In Touch'}
+            </SpecularButton>
+          </Magnet>
+        </div>
+
+        {isFormOpen && (
+          <div className="mt-8 max-w-md">
+            <GlassSurface
+              width="100%"
+              height="auto"
+              borderRadius={24}
+              backgroundOpacity={0.14}
+              brightness={40}
+              blur={12}
+              opacity={0.92}
+              className="p-5"
+              style={{ minHeight: 280, width: '100%' }}
+            >
+              <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-left">
+                <input
+                  className="rounded-xl border border-border bg-black/40 px-4 py-3 text-fg outline-none placeholder:text-dim focus:border-white/40"
+                  type="text"
+                  name="name"
+                  placeholder="Your Name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+                <input
+                  className="rounded-xl border border-border bg-black/40 px-4 py-3 text-fg outline-none placeholder:text-dim focus:border-white/40"
+                  type="email"
+                  name="email"
+                  placeholder="Your Email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+                <textarea
+                  className="rounded-xl border border-border bg-black/40 px-4 py-3 text-fg outline-none placeholder:text-dim focus:border-white/40"
+                  name="message"
+                  placeholder="Tell me what you need!"
+                  rows={3}
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  required
+                />
+                <SpecularButton type="submit" disabled={isSubmitting} size="sm" className="self-start">
+                  {isSubmitting ? 'Sending...' : 'Send Message'}
+                </SpecularButton>
+                {submitMessage && <p className="text-sm text-muted">{submitMessage}</p>}
+              </form>
+            </GlassSurface>
+          </div>
+        )}
+      </div>
+    </section>
+  )
 }
-export default Home;

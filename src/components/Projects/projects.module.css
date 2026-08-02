@@ -1,7 +1,8 @@
 .container{
     background: black;
-    min-height: 400px;
-
+    height: auto;
+    padding-bottom: 50px;
+    overflow-x: hidden;
 }
 .container button {
     background: none;
@@ -25,10 +26,11 @@
     content: " //";
 }
 .list{
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    flex-grow: 1;
-    position: relative;
-    justify-content: space-around;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    justify-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
 }
