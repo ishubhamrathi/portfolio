@@ -12,6 +12,25 @@ import Blog from '@/components/Blog/Blog'
 import Social from '@/components/Social/Social'
 import ProjectDetailPage from '@/components/Project/ProjectDetailPage'
 import { getFeatures, getHome } from '@/services/contentApi'
+import { HiHome, HiFolder, HiUser, HiChartBar, HiNewspaper, HiEnvelope } from 'react-icons/hi2'
+
+const navIcons = {
+  '#home': HiHome,
+  '#projects': HiFolder,
+  '#about': HiUser,
+  '#stats': HiChartBar,
+  '#blog': HiNewspaper,
+  '#social': HiEnvelope,
+}
+
+const navColors = {
+  '#home': '#3b82f6',
+  '#projects': '#10b981',
+  '#about': '#8b5cf6',
+  '#stats': '#f59e0b',
+  '#blog': '#ef4444',
+  '#social': '#06b6d4',
+}
 
 function AppShell() {
   const [navLabels, setNavLabels] = useState(null)
@@ -32,21 +51,21 @@ function AppShell() {
   const navItems = useMemo(() => {
     const labels = navLabels || {}
     const items = [
-      { label: labels.home || 'Home', href: '#home' },
-      { label: labels.projects || 'Projects', href: '#projects' },
-      { label: labels.about || 'About', href: '#about' },
-      { label: 'Stats', href: '#stats' },
+      { label: labels.home || 'Home', href: '#home', icon: <HiHome className="h-5 w-5" />, color: navColors['#home'] },
+      { label: labels.projects || 'Projects', href: '#projects', icon: <HiFolder className="h-5 w-5" />, color: navColors['#projects'] },
+      { label: labels.about || 'About', href: '#about', icon: <HiUser className="h-5 w-5" />, color: navColors['#about'] },
+      { label: 'Stats', href: '#stats', icon: <HiChartBar className="h-5 w-5" />, color: navColors['#stats'] },
     ]
     if (flags.blog !== false) {
-      items.push({ label: labels.blog || 'Blog', href: '#blog' })
+      items.push({ label: labels.blog || 'Blog', href: '#blog', icon: <HiNewspaper className="h-5 w-5" />, color: navColors['#blog'] })
     }
-    items.push({ label: labels.contact || 'Contact', href: '#social' })
+    items.push({ label: labels.contact || 'Contact', href: '#social', icon: <HiEnvelope className="h-5 w-5" />, color: navColors['#social'] })
     return items
   }, [navLabels, flags])
 
   return (
     <ClickSpark sparkColor="#ffffff" sparkSize={8} sparkRadius={18} sparkCount={6} duration={450}>
-      <div className="App relative min-h-screen bg-transparent text-fg">
+      <div className="App relative min-h-screen bg-transparent pb-28 text-fg md:ml-[280px] md:pb-0">
         <GlobalEffects />
         <SiteNav items={navItems} />
         <main>
