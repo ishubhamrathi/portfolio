@@ -6,26 +6,27 @@
 
 | Endpoint | Used for |
 |---|---|
-| `GET /api/portfolio/projects` | Projects grid — returns `{ projects: { title, items: [...] } }` |
-| `GET /api/portfolio/projects/{id}` | Project detail (404 if not SHOW) |
-| `GET /api/portfolio/categories` | Filter chips — returns `{ categories: ["web-apps", "tools"] }` |
+| `GET /api/content` | **Consolidated public content** — socials, portfolio projects, blog posts, feature flags in one call |
+| `GET /api/content/types` | Available content types (`["socials", "portfolio", "blogs", "feature_flags"]`) |
 | `GET /api/v1/widget/PFP` | Widget catalog (`metadata.catalog`) — used to resolve tech names/icons |
-| `GET /api/blog/posts` | Blog section |
-| `GET /api/blog/posts/{slug}` | Blog detail |
-| `GET /api/features?category=portfolio` | Feature flags (e.g. hide blog) |
 
-Auth: none. GET only. The public projects service returns only `visibility_status = 'SHOW'` items, sorted by `sort_order`.
+Auth: none. GET only. All public content is fetched with a single `GET /api/content` call (cached per-session). The public projects service returns only `visibility_status = 'SHOW'` items; blog posts return only published entries.
 
-## Query params (`GET /api/portfolio/projects`)
+## Query params (`GET /api/content`)
 
 | Param | Meaning |
 |---|---|
-| `categoryPath` | Optional — filter by a `category_path` value from `/api/portfolio/categories` |
-| `limit` | Optional — max items (cap 200) |
+| `type` | Optional — comma-separated subset (e.g. `portfolio,blogs`); omit for all |
+| `portfolio_limit` | Optional — cap portfolio items |
+| `blogs_limit` | Optional — cap blog posts |
+| `socials_limit` | Optional — cap social links |
+| `feature_category` | Optional — feature flag scope (default `portfolio`) |
+
+> Project detail and blog detail pages find individual items client-side from the cached `/api/content` portfolio/blogs response (no separate detail endpoints).
 
 ## Frontend mapping (public API → UI)
 
-The public project shape is mapped in `mapApiProject()` (`src/services/contentApi.js`). Both the refreshed schema and the legacy camelCase shape are accepted. `status`, `topCategory`, `visibility` arrive as `{ value, label }` objects; `tech` arrives as an array of `{ value, label, icon }` (icon is a URL, e.g. `https://cdn.simpleicons.org/react`).
+Public project data lives under `response.portfolio.projects.items` in the `GET /api/content` response. The first project is mapped by `mapApiProject()` (`src/services/contentApi.js`). Both the refreshed schema and the legacy camelCase shape are accepted. `status`, `topCategory`, `visibility` arrive as `{ value, label }` objects; `tech` arrives as an array of `{ value, label, icon }` (icon is a URL, e.g. `https://cdn.simpleicons.org/react`).
 
 | Public API field | UI field |
 |---|---|

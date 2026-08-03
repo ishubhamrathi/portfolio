@@ -50,7 +50,7 @@ src/
 
 ### Content flow (IMPORTANT)
 
-- `contentApi.js` is the **only** module that should touch data. Components call `getHome()`, `getAbout()`, `getSocial()`, `getStatsConfig()`, `getProjects()`, `getCategories()`, `getWidgetCatalog()`, `getBlogPosts()`, `getFormspreeEndpoint()`.
+- `contentApi.js` is the **only** module that should touch data. Components call `getHome()`, `getAbout()`, `getSocial()`, `getStatsConfig()`, `getProjects()`, `getCategories()`, `getWidgetCatalog()`, `getBlogPosts()`, `getContactEndpoint()`.
 - Home/About/Social/Stats always come from `src/resources/content.json` (not yet on backend).
 - Projects/Blog prefer a backend API at `VITE_API_BASE` (default `http://localhost:8080`) and **silently fall back** to `content.json` on failure. A "Source: live API / content.json fallback" label is shown in the Projects section.
 - `GET /api/portfolio/projects` returns `{ projects: { title, items: [...] } }` (public schema, pre-filtered to `visibility_status = 'SHOW'`, sorted by `sort_order`; params `categoryPath` + `limit` ≤ 200). The Projects filter bar is driven by `GET /api/portfolio/categories` (`categoryPath` chips) and hides when that fails. Each item's `status`/`topCategory`/`visibility` are `{ value, label }` objects and `tech` is `[{ value, label, icon }]` (icon = URL); `shortDescription`/`description` are HTML (`description` is rendered rich-text on the `/projects/:id` page, `shortDescription` is tag-stripped for the card). `mapApiProject()` normalizes all of this (`tech` → `[{ code, label, icon }]`) and tolerates the legacy camelCase/string shape, with static `STATUS_LABELS` / `TOP_CATEGORY_LABELS` / `TECH_LABELS` as fallback. `getWidgetCatalog()` / `buildTechLookup()` are retained but not required for rendering.
@@ -68,7 +68,8 @@ src/
 | `VITE_API_BASE` | `http://localhost:8080` | Backend API root |
 | `VITE_USE_API_PROJECTS` | `true` | Use API projects or local only |
 | `VITE_USE_API_BLOG` | `true` | Use API blog or none |
-| `VITE_FORMSPREE_ID` | empty | Contact form endpoint (`https://formspree.io/f/{id}`). **Form is disabled until this is set.** |
+
+Contact form: posts to `POST {API_BASE}/api/contact` (public) with `sender_name`, `sender_email`, `message`. Message box is a BlockNote rich-text editor (`MessageEditor.jsx`, lazy-loaded) — the typed content is sent as Markdown.
 
 `.env` exists locally (gitignored). Never commit it.
 
@@ -95,7 +96,7 @@ High priority:
 4. **Fabricated/placeholder data.**
    - `Stats.jsx`: hardcoded fake LinkedIn stats (2 years, 10 projects, "Software Development Intern") and fake LeetCode fallback numbers (150 solved / rank 125000). Remove hardcoding or source real data.
    - `content.json`: `"company": "XYZ Company"`, "BTech Completed 2024", `photo: "/me.jpg"` (file does not exist — relies on GitHub avatar fallback), and `via.placeholder.com` image URLs in the OpenCV project. Replace with real content or remove.
-5. **Contact form is inert.** Needs `VITE_FORMSPREE_ID`; without it the button only shows a warning message. Decide: enable Formspree or remove the form.
+5. **Contact form posts to the backend.** `POST {API_BASE}/api/contact` with `sender_name`/`sender_email`/`message` (message sent as Markdown from the BlockNote editor). Requires the backend to be reachable; on failure the form shows a generic error.
 
 Medium priority:
 6. **Missing assets.** `public/me.jpg` and `public/audio/ambient.mp3` are referenced but don't exist (SoundProvider falls back to a generated drone tone; About falls back to GitHub avatar). Add real files or drop references.

@@ -1,0 +1,35 @@
+.wrap {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(0 0 0 / 0.4);
+  transition: border-color 0.2s ease;
+}
+
+.wrap:focus-within {
+  border-color: rgb(255 255 255 / 0.4);
+}
+
+.editor {
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+}
+
+.editor :global(.bn-editor) {
+  min-height: 200px;
+  padding: 0.75rem 1rem 0.75rem 54px;
+}
+
+.editor::-webkit-scrollbar {
+  width: 8px;
+}
+
+.editor::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.15);
+  border-radius: 9999px;
+}
+
+.editor::-webkit-scrollbar-track {
+  background: transparent;
+}

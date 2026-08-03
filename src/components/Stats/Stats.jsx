@@ -14,9 +14,12 @@ export default function Stats() {
     getStatsConfig().then(setConfig)
   }, [])
 
-  useEffect(() => {
+   useEffect(() => {
     fetch('https://leetcode-stats-api.herokuapp.com/ishubhamrathi')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((data) => {
         if (data.status === 'success') {
           setLeetcodeStats({
@@ -33,7 +36,10 @@ export default function Stats() {
       .catch(() => setLeetcodeStats({ totalSolved: 150, easy: 80, medium: 50, hard: 20, ranking: 125000 }))
 
     fetch('https://api.github.com/users/ishubhamrathi')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((data) => {
         setGithubStats({
           followers: data.followers || 0,

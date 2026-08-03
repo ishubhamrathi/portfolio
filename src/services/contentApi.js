@@ -10,6 +10,24 @@ async function fetchJson(url) {
   return response.json()
 }
 
+let contentCache = null
+let contentPromise = null
+
+async function fetchContent() {
+  if (contentCache) return contentCache
+  if (contentPromise) return contentPromise
+  contentPromise = fetchJson(`${API_BASE}/api/content`)
+    .then((data) => {
+      contentCache = data
+      return data
+    })
+    .catch((err) => {
+      contentPromise = null
+      throw err
+    })
+  return contentPromise
+}
+
 function toOptionList(options) {
   if (!Array.isArray(options)) return []
   return options
@@ -249,7 +267,9 @@ export function mapLegacyProject(project, index = 0) {
 
 export async function getFeatures() {
   try {
-    return await fetchJson(`${API_BASE}/api/features?category=portfolio`)
+    const data = await fetchContent()
+    const ff = data?.feature_flags || {}
+    return { flags: ff.flags || {} }
   } catch {
     return { flags: {} }
   }
@@ -265,7 +285,24 @@ export async function getAbout() {
 }
 
 export async function getSocial() {
-  return content.social
+  try {
+    const data = await fetchContent()
+    const socialsList = data?.socials?.socials || []
+    if (!socialsList.length) return content.social
+    const links = {}
+    for (const s of socialsList) {
+      const name = (s.name || '').toLowerCase()
+      if (name && ['github', 'linkedin', 'instagram', 'email'].includes(name)) {
+        links[name] = s.link || ''
+      }
+    }
+    return {
+      title: content.social?.title || 'Follow Me',
+      links: { ...content.social?.links, ...links },
+    }
+  } catch {
+    return content.social
+  }
 }
 
 export async function getStatsConfig() {
@@ -300,14 +337,25 @@ export async function getWidgetCatalog() {
   }
 }
 
-/** Category chips for the filter bar (categoryPath values). Prefers the public categories endpoint. */
+/** Category chips for the filter bar (categoryPath values). Derived from /api/content portfolio items. */
 export async function getCategories() {
   try {
-    const data = await fetchJson(`${API_BASE}/api/portfolio/categories`)
-    const categories = data.categories || []
-    if (Array.isArray(categories) && categories.length) return categories
+    const data = await fetchContent()
+    const items = data?.portfolio?.projects?.items || []
+    const categories = [
+      ...new Set(
+        items
+          .map((p) => {
+            const raw = p.category_path || p.categoryPath || p.top_category || p.topCategory
+            if (raw && typeof raw === 'object') return raw.value
+            return raw
+          })
+          .filter(Boolean)
+      ),
+    ]
+    if (categories.length) return categories
   } catch (error) {
-    console.warn('Categories API unavailable', error)
+    console.warn('Categories unavailable from API', error)
   }
   const catalog = await getWidgetCatalog()
   if (catalog && catalog.topCategories.length) {
@@ -318,11 +366,11 @@ export async function getCategories() {
 }
 
 /**
- * Prefer live portfolio API; merge/fallback to content.json so nothing is removed.
+ * Prefer live portfolio API via the consolidated /api/content endpoint;
+ * merge/fallback to content.json so nothing is removed.
  * Set VITE_USE_API_PROJECTS=false to force local-only during migration.
  *
- * GET /api/portfolio/projects — ?categoryPath= (optional) & ?limit= (optional, max 200)
- * returns { projects: { title: "Projects", items: [...] } } (public schema, visibility=SHOW only).
+ * GET /api/content → response.portfolio.projects.items (public schema, visibility=SHOW only).
  */
 export async function getProjects({ categoryPath, limit } = {}) {
   const useApi = import.meta.env.VITE_USE_API_PROJECTS !== 'false'
@@ -334,25 +382,23 @@ export async function getProjects({ categoryPath, limit } = {}) {
   }
 
   try {
-    const params = new URLSearchParams()
-    if (categoryPath) params.set('categoryPath', categoryPath)
-    if (limit) params.set('limit', String(limit))
-    const qs = params.toString()
-    const data = await fetchJson(
-      `${API_BASE}/api/portfolio/projects${qs ? `?${qs}` : ''}`
-    )
-    const block =
-      data.projects && !Array.isArray(data.projects)
-        ? data.projects
-        : { title, items: Array.isArray(data.projects) ? data.projects : [] }
-    const apiItems = (block.items || []).map(mapApiProject)
-    // Keep legacy projects available under a separate list for migration visibility
+    const data = await fetchContent()
+    const block = data?.portfolio?.projects || { title, items: [] }
+    let apiItems = (block.items || []).map(mapApiProject)
+
+    if (categoryPath) {
+      apiItems = apiItems.filter((p) => (p.categoryPath || '') === categoryPath)
+    }
+    if (limit) {
+      apiItems = apiItems.slice(0, limit)
+    }
+
     return {
       title: block.title || title,
       items: apiItems.length ? apiItems : legacyItems,
       legacyItems,
       categories: [],
-      count: apiItems.length || legacyItems.length,
+      count: apiItems.length,
       source: apiItems.length ? 'api' : 'legacy',
     }
   } catch (error) {
@@ -363,12 +409,14 @@ export async function getProjects({ categoryPath, limit } = {}) {
 
 export async function getProjectById(id) {
   try {
-    const project = await fetchJson(`${API_BASE}/api/portfolio/projects/${id}`)
-    return mapApiProject(project)
+    const data = await fetchContent()
+    const items = data?.portfolio?.projects?.items || []
+    const found = items.find((p) => String(p.id) === String(id))
+    return found ? mapApiProject(found) : null
   } catch {
     const legacy = (content.projects?.items || [])
       .map(mapLegacyProject)
-      .find((p) => p.id === id)
+      .find((p) => String(p.id) === String(id))
     return legacy || null
   }
 }
@@ -378,8 +426,9 @@ export async function getBlogPosts({ limit = 10 } = {}) {
   if (!useApi) return { posts: [], source: 'none' }
 
   try {
-    const data = await fetchJson(`${API_BASE}/api/blog/posts?limit=${limit}`)
-    return { posts: data.posts || data || [], source: 'api' }
+    const data = await fetchContent()
+    const posts = (data?.blogs?.posts || []).slice(0, limit)
+    return { posts, source: 'api' }
   } catch (error) {
     console.warn('Blog API unavailable', error)
     return { posts: [], source: 'none' }
@@ -388,15 +437,16 @@ export async function getBlogPosts({ limit = 10 } = {}) {
 
 export async function getBlogPost(slug) {
   try {
-    return await fetchJson(`${API_BASE}/api/blog/posts/${slug}`)
+    const data = await fetchContent()
+    const posts = data?.blogs?.posts || []
+    return posts.find((p) => p.slug === slug) || null
   } catch {
     return null
   }
 }
 
-export function getFormspreeEndpoint() {
-  const id = import.meta.env.VITE_FORMSPREE_ID
-  return id ? `https://formspree.io/f/${id}` : null
+export function getContactEndpoint() {
+  return `${API_BASE}/api/contact`
 }
 
 export { API_BASE, content }

@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import GlassSurface from '@/components/GlassSurface'
 import TextType from '@/components/TextType'
 import BlurText from '@/components/BlurText'
 import Magnet from '@/components/Magnet'
 import SpecularButton from '@/components/SpecularButton'
-import { getFormspreeEndpoint, getHome } from '@/services/contentApi'
+import { getContactEndpoint, getHome } from '@/services/contentApi'
 import { useSound } from '@/context/SoundProvider'
+
+const MessageEditor = lazy(() => import('@/components/MessageEditor/MessageEditor'))
 
 export default function Home() {
   const [home, setHome] = useState(null)
@@ -30,15 +32,19 @@ export default function Home() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
-    const endpoint = getFormspreeEndpoint()
+    const endpoint = getContactEndpoint()
     try {
-      if (!endpoint) {
-        setSubmitMessage('Add VITE_FORMSPREE_ID to enable sending.')
+      if (!(formData.message || '').trim()) {
+        setSubmitMessage('Please write a message before sending.')
       } else {
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({
+            sender_name: formData.name,
+            sender_email: formData.email,
+            message: formData.message,
+          }),
         })
         if (response.ok) {
           setSubmitMessage("Thank you! I'll get back to you soon.")
@@ -101,7 +107,7 @@ export default function Home() {
         </div>
 
         {isFormOpen && (
-          <div className="mt-8 max-w-md">
+          <div className="mt-8 w-full max-w-lg">
             <GlassSurface
               width="100%"
               height="auto"
@@ -113,7 +119,7 @@ export default function Home() {
               className="p-5"
               style={{ minHeight: 280, width: '100%' }}
             >
-              <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-left">
+              <form onSubmit={handleSubmit} className="flex w-full flex-col gap-3 text-left">
                 <input
                   className="rounded-xl border border-border bg-black/40 px-4 py-3 text-fg outline-none placeholder:text-dim focus:border-white/40"
                   type="text"
@@ -132,15 +138,18 @@ export default function Home() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                 />
-                <textarea
-                  className="rounded-xl border border-border bg-black/40 px-4 py-3 text-fg outline-none placeholder:text-dim focus:border-white/40"
-                  name="message"
-                  placeholder="Tell me what you need!"
-                  rows={3}
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  required
-                />
+                <Suspense
+                  fallback={
+                    <div className="rounded-xl border border-border bg-black/40 px-4 py-3 text-sm text-dim">
+                      Loading editor...
+                    </div>
+                  }
+                >
+                  <MessageEditor
+                    onChange={(message) => setFormData((prev) => ({ ...prev, message }))}
+                    placeholder="Tell me what you need!"
+                  />
+                </Suspense>
                 <SpecularButton type="submit" disabled={isSubmitting} size="sm" className="self-start">
                   {isSubmitting ? 'Sending...' : 'Send Message'}
                 </SpecularButton>

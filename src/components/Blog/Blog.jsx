@@ -28,7 +28,7 @@ export default function Blog() {
         <ShinyText text="Blog" speed={3} className="text-fg" />
       </h2>
       <p className="mb-10 text-sm text-dim">
-        {source === 'api' ? 'From /api/blog/posts' : source === 'loading' ? 'Loading…' : 'No published posts yet'}
+        {source === 'api' ? 'From /api/content' : source === 'loading' ? 'Loading…' : 'No published posts yet'}
       </p>
 
       {source === 'loading' ? (
