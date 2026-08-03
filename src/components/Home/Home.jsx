@@ -12,7 +12,7 @@ const MessageEditor = lazy(() => import('@/components/MessageEditor/MessageEdito
 export default function Home() {
   const [home, setHome] = useState(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' })
+  const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState('')
   const { playClick, playSuccess, unlock } = useSound()
@@ -43,12 +43,13 @@ export default function Home() {
           body: JSON.stringify({
             sender_name: formData.name,
             sender_email: formData.email,
+            subject: formData.subject,
             message: formData.message,
           }),
         })
         if (response.ok) {
           setSubmitMessage("Thank you! I'll get back to you soon.")
-          setFormData({ name: '', email: '', message: '' })
+          setFormData({ name: '', email: '', subject: '', message: '' })
           playSuccess()
           setTimeout(() => setIsFormOpen(false), 2000)
         } else {
@@ -137,6 +138,14 @@ export default function Home() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
+                />
+                <input
+                  className="rounded-xl border border-border bg-black/40 px-4 py-3 text-fg outline-none placeholder:text-dim focus:border-white/40"
+                  type="text"
+                  name="subject"
+                  placeholder="Subject"
+                  value={formData.subject}
+                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                 />
                 <Suspense
                   fallback={

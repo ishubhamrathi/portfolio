@@ -69,7 +69,7 @@ src/
 | `VITE_USE_API_PROJECTS` | `true` | Use API projects or local only |
 | `VITE_USE_API_BLOG` | `true` | Use API blog or none |
 
-Contact form: posts to `POST {API_BASE}/api/contact` (public) with `sender_name`, `sender_email`, `message`. Message box is a BlockNote rich-text editor (`MessageEditor.jsx`, lazy-loaded) — the typed content is sent as Markdown.
+Contact form: posts to `POST {API_BASE}/api/contact` (public) with `sender_name`, `sender_email`, `subject`, `message`. Message box is a BlockNote rich-text editor (`MessageEditor.jsx`, lazy-loaded) — the typed content is sent as Markdown.
 
 `.env` exists locally (gitignored). Never commit it.
 
@@ -96,7 +96,7 @@ High priority:
 4. **Fabricated/placeholder data.**
    - `Stats.jsx`: hardcoded fake LinkedIn stats (2 years, 10 projects, "Software Development Intern") and fake LeetCode fallback numbers (150 solved / rank 125000). Remove hardcoding or source real data.
    - `content.json`: `"company": "XYZ Company"`, "BTech Completed 2024", `photo: "/me.jpg"` (file does not exist — relies on GitHub avatar fallback), and `via.placeholder.com` image URLs in the OpenCV project. Replace with real content or remove.
-5. **Contact form posts to the backend.** `POST {API_BASE}/api/contact` with `sender_name`/`sender_email`/`message` (message sent as Markdown from the BlockNote editor). Requires the backend to be reachable; on failure the form shows a generic error.
+5. **Contact form posts to the backend.** `POST {API_BASE}/api/contact` with `sender_name`/`sender_email`/`subject`/`message` (message sent as Markdown from the BlockNote editor). Requires the backend to be reachable; on failure the form shows a generic error.
 
 Medium priority:
 6. **Missing assets.** `public/me.jpg` and `public/audio/ambient.mp3` are referenced but don't exist (SoundProvider falls back to a generated drone tone; About falls back to GitHub avatar). Add real files or drop references.
