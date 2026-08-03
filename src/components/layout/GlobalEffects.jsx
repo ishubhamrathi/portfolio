@@ -1,8 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Noise from '@/components/Noise'
 import TargetCursor from '@/components/TargetCursor'
-
-const Silk = lazy(() => import('@/components/Silk'))
+import FaultyTerminal from '@/components/FaultyTerminal/FaultyTerminal'
 
 export default function GlobalEffects() {
   const [reduceMotion, setReduceMotion] = useState(false)
@@ -27,11 +26,27 @@ export default function GlobalEffects() {
     <>
       <div className="pointer-events-none fixed inset-0 -z-10 bg-bg">
         {!reduceMotion && !isMobile ? (
-          <Suspense fallback={<div className="h-full w-full bg-bg" />}>
-            <div className="h-full w-full opacity-70">
-              <Silk speed={3.5} scale={1.1} color="#2a2a2a" noiseIntensity={1.2} rotation={0} />
-            </div>
-          </Suspense>
+          <div className="absolute inset-0 h-full w-full">
+            <FaultyTerminal
+              scale={1.5}
+              gridMul={[2, 1]}
+              digitSize={1.2}
+              timeScale={0.5}
+              pause={false}
+              scanlineIntensity={0.5}
+              glitchAmount={1}
+              flickerAmount={1}
+              noiseAmp={1}
+              chromaticAberration={0}
+              dither={0}
+              curvature={0.1}
+              tint="#605454"
+              mouseReact
+              mouseStrength={0.5}
+              pageLoadAnimation
+              brightness={0.6}
+            />
+          </div>
         ) : (
           <div
             className="h-full w-full"
@@ -41,7 +56,7 @@ export default function GlobalEffects() {
             }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30" />
       </div>
 
       {!reduceMotion && !isMobile && (
