@@ -64,11 +64,6 @@ export default function Projects() {
           <h2 className="font-display text-4xl font-bold text-fg md:text-5xl">
             <DecryptedText text={data.title || 'Projects'} animateOn="view" speed={60} />
           </h2>
-          {data.source && data.source !== 'loading' && (
-            <p className="mt-2 text-xs uppercase tracking-wider text-dim">
-              Source: {data.source === 'api' ? 'live API' : 'content.json fallback'}
-            </p>
-          )}
         </div>
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-2">

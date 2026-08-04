@@ -67,7 +67,9 @@ src/
 |---|---|---|
 | `VITE_API_BASE` | `http://localhost:8080` | Backend API root |
 | `VITE_USE_API_PROJECTS` | `true` | Use API projects or local only |
+| `VITE_USE_API_SOCIAL` | `true` | Use API socials or local only |
 | `VITE_USE_API_BLOG` | `true` | Use API blog or none |
+| `VITE_USE_SECTION_SCROLL` | `false` | Section auto-scroll (one section per wheel swipe, fling skips to end). Experimental — glides can overshoot, disabled by default |
 
 Contact form: posts to `POST {API_BASE}/api/contact` (public) with `sender_name`, `sender_email`, `subject`, `message`. Message box is a BlockNote rich-text editor (`MessageEditor.jsx`, lazy-loaded) — the typed content is sent as Markdown.
 

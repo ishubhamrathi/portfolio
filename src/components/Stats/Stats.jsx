@@ -64,7 +64,7 @@ export default function Stats() {
       <p className="mb-2 text-xs uppercase tracking-[0.35em] text-dim">Signals</p>
       <h2 className="mb-10 font-display text-4xl font-bold md:text-5xl">{config.title}</h2>
 
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))]">
         <AnimatedContent distance={40}>
           <GlassSurface
             width="100%"

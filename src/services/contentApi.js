@@ -265,6 +265,56 @@ export function mapLegacyProject(project, index = 0) {
   }
 }
 
+const LEGACY_SOCIAL_SLUGS = {
+  GITHUB: 'github',
+  LINKEDIN: 'linkedin',
+  INSTAGRAM: 'instagram',
+  EMAIL: 'maildotru',
+}
+
+function extractSocialList(raw) {
+  if (Array.isArray(raw)) return raw
+  if (Array.isArray(raw?.socials)) return raw.socials
+  if (Array.isArray(raw?.items)) return raw.items
+  return []
+}
+
+/**
+ * Map a backend social row (public API schema) → UI social shape.
+ * `iconUrl` (direct icon URL) is preferred; legacy `icon` JSONB object
+ * { style, line, monochrome, normal, filled } of simpleicons slugs still works.
+ */
+export function mapApiSocial(social) {
+  const icon = social.icon && typeof social.icon === 'object' ? social.icon : {}
+  const iconSlug =
+    icon[icon.style] || icon.normal || icon.line || icon.monochrome || icon.filled || 'link'
+  return {
+    id: social.id,
+    name: (social.name || '').toUpperCase(),
+    link: social.link || '',
+    category: social.category || 'SOCIAL',
+    displayOrder: social.displayOrder ?? social.display_order ?? 0,
+    iconStyle: icon.style || 'normal',
+    iconSlug,
+    iconUrl: social.iconUrl || '',
+  }
+}
+
+/** Map a legacy content.json social entry ({ name, link, ... }) → UI social shape. */
+export function mapLegacySocial(social) {
+  const name = (social.name || '').toUpperCase()
+  const displayOrder = social.displayOrder ?? 0
+  return {
+    id: social.id || `legacy-social-${displayOrder}`,
+    name,
+    link: social.link || '',
+    category: social.category || (name === 'EMAIL' ? 'SOCIAL' : 'CODING_PROFILE'),
+    displayOrder,
+    iconStyle: 'line',
+    iconSlug: LEGACY_SOCIAL_SLUGS[name] || 'link',
+  }
+}
+
 export async function getFeatures() {
   try {
     const data = await fetchContent()
@@ -284,25 +334,35 @@ export async function getAbout() {
   return content.about
 }
 
+/**
+ * Prefer live socials from the consolidated /api/content endpoint
+ * (response.socials — active rows sorted by display_order); fall back to
+ * content.json so the footer always renders.
+ * Set VITE_USE_API_SOCIAL=false to force local-only during migration.
+ */
 export async function getSocial() {
+  const legacyLinks = Object.entries(content.social?.links || {}).map(([key, link], i) =>
+    mapLegacySocial({ id: `legacy-social-${i}`, name: key, link, displayOrder: i })
+  )
+  const title = content.social?.title || 'Follow Me'
+
+  if (import.meta.env.VITE_USE_API_SOCIAL === 'false') {
+    return { title, links: legacyLinks, source: 'legacy', legacyLinks }
+  }
+
   try {
     const data = await fetchContent()
-    const socialsList = data?.socials?.socials || []
-    if (!socialsList.length) return content.social
-    const links = {}
-    for (const s of socialsList) {
-      const name = (s.name || '').toLowerCase()
-      if (name && ['github', 'linkedin', 'instagram', 'email'].includes(name)) {
-        links[name] = s.link || ''
-      }
+    const apiLinks = extractSocialList(data?.socials)
+      .map(mapApiSocial)
+      .filter((s) => s.name && s.link)
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+    if (apiLinks.length) {
+      return { title, links: apiLinks, source: 'api', legacyLinks }
     }
-    return {
-      title: content.social?.title || 'Follow Me',
-      links: { ...content.social?.links, ...links },
-    }
-  } catch {
-    return content.social
+  } catch (error) {
+    console.warn('Social API unavailable, using content.json', error)
   }
+  return { title, links: legacyLinks, source: 'legacy', legacyLinks }
 }
 
 export async function getStatsConfig() {
@@ -387,19 +447,22 @@ export async function getProjects({ categoryPath, limit } = {}) {
     let apiItems = (block.items || []).map(mapApiProject)
 
     if (categoryPath) {
-      apiItems = apiItems.filter((p) => (p.categoryPath || '') === categoryPath)
+      apiItems = apiItems.filter(
+        (p) => p.categoryPath === categoryPath || p.topCategory === categoryPath
+      )
     }
     if (limit) {
       apiItems = apiItems.slice(0, limit)
     }
 
+    const emptyFallback = apiItems.length === 0 && !categoryPath
     return {
       title: block.title || title,
-      items: apiItems.length ? apiItems : legacyItems,
+      items: emptyFallback ? legacyItems : apiItems,
       legacyItems,
       categories: [],
       count: apiItems.length,
-      source: apiItems.length ? 'api' : 'legacy',
+      source: emptyFallback ? 'legacy' : 'api',
     }
   } catch (error) {
     console.warn('Portfolio API unavailable, using content.json', error)
@@ -421,28 +484,95 @@ export async function getProjectById(id) {
   }
 }
 
+/**
+ * Map a backend blog post → UI blog shape.
+ * Accepts the public API schema (snake_case columns, metadata) and the
+ * legacy content.json shape so both keep working.
+ */
+export function mapApiBlogPost(post) {
+  const meta = post.metadata && typeof post.metadata === 'object' ? post.metadata : {}
+  const image =
+    post.image || post.coverImage || post.cover_image || meta.image || meta.coverImage || ''
+  return {
+    id: post.id,
+    slug: post.slug || (post.id != null ? String(post.id) : ''),
+    title: post.title || '',
+    excerpt: post.excerpt || post.shortDescription || '',
+    content: post.content || post.excerpt || '',
+    author: post.author || meta.author || '',
+    publishedAt: post.publishedAt || post.published_at || meta.publishedAt || '',
+    image,
+    category: post.category || post.categoryLabel || meta.category || '',
+    tags: Array.isArray(post.tags)
+      ? post.tags
+      : Array.isArray(meta.tags)
+        ? meta.tags
+        : [],
+    readingTime: post.readingTime || meta.readingTime || '',
+  }
+}
+
+/** Map a legacy content.json blog post → same UI shape. */
+export function mapLegacyBlogPost(post, index = 0) {
+  return {
+    id: post.id || `blog-${index}`,
+    slug: post.slug || post.id || `blog-${index}`,
+    title: post.title || '',
+    excerpt: post.excerpt || '',
+    content: post.content || post.excerpt || '',
+    author: post.author || '',
+    publishedAt: post.publishedAt || '',
+    image: post.image || '',
+    category: post.category || '',
+    tags: Array.isArray(post.tags) ? post.tags : [],
+    readingTime: post.readingTime || '',
+  }
+}
+
 export async function getBlogPosts({ limit = 10 } = {}) {
   const useApi = import.meta.env.VITE_USE_API_BLOG !== 'false'
-  if (!useApi) return { posts: [], source: 'none' }
+  const legacyPosts = (content.blogs?.posts || []).map(mapLegacyBlogPost)
+  const title = content.blogs?.title || 'Blog'
+
+  if (!useApi) {
+    return { title, posts: legacyPosts.slice(0, limit), source: 'legacy', count: legacyPosts.length }
+  }
 
   try {
     const data = await fetchContent()
-    const posts = (data?.blogs?.posts || []).slice(0, limit)
-    return { posts, source: 'api' }
+    const posts = (data?.blogs?.posts || []).slice(0, limit).map(mapApiBlogPost)
+    const emptyFallback = posts.length === 0
+    return {
+      title: data?.blogs?.title || title,
+      posts: emptyFallback ? legacyPosts.slice(0, limit) : posts,
+      legacyPosts,
+      count: posts.length,
+      source: emptyFallback ? 'legacy' : 'api',
+    }
   } catch (error) {
-    console.warn('Blog API unavailable', error)
-    return { posts: [], source: 'none' }
+    console.warn('Blog API unavailable, using content.json', error)
+    return { title, posts: legacyPosts.slice(0, limit), source: 'legacy', count: legacyPosts.length }
   }
 }
 
 export async function getBlogPost(slug) {
-  try {
-    const data = await fetchContent()
-    const posts = data?.blogs?.posts || []
-    return posts.find((p) => p.slug === slug) || null
-  } catch {
-    return null
+  const useApi = import.meta.env.VITE_USE_API_BLOG !== 'false'
+
+  if (useApi) {
+    try {
+      const data = await fetchContent()
+      const posts = data?.blogs?.posts || []
+      const found = posts.find((p) => p.slug === slug || String(p.id) === String(slug))
+      if (found) return mapApiBlogPost(found)
+    } catch {
+      // fall through to legacy
+    }
   }
+
+  const legacy = (content.blogs?.posts || [])
+    .map(mapLegacyBlogPost)
+    .find((p) => p.slug === slug || String(p.id) === String(slug))
+  return legacy || null
 }
 
 export function getContactEndpoint() {

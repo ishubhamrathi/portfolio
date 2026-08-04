@@ -44,6 +44,21 @@ Public project data lives under `response.portfolio.projects.items` in the `GET 
 | `visibility` `{ value, label }` | `visibility` (already SHOW-filtered) |
 | `createdAt` / `updatedAt` | passthrough |
 
+### Social links (footer)
+
+Public social data lives under `response.socials` in the `GET /api/content` response — an array of active rows (sorted by `display_order`). `getSocial()` (`src/services/contentApi.js`) normalizes each row with `mapApiSocial()` and falls back to `content.json` on failure or when empty. Set `VITE_USE_API_SOCIAL=false` to force local-only.
+
+| Public API field | UI field |
+|---|---|
+| `name` (`GITHUB`, `LINKEDIN`, …) | `name` |
+| `link` | `link` |
+| `iconUrl` (direct icon URL, e.g. `https://cdn.simpleicons.org/github`) | `iconUrl` — used as the icon `src` when present |
+| `icon` JSONB `{ style, line, monochrome, normal, filled }` | `iconSlug` (variant chosen by `style`) + `iconStyle` — fallback when `iconUrl` is absent |
+| `category` (`SOCIAL` / `CODING_PROFILE`) | `category` |
+| `displayOrder` | `displayOrder` (dock sort order) |
+
+The dock renders each icon as `<img src="https://cdn.simpleicons.org/{iconSlug}">`; `EMAIL` links are opened via `mailto:`.
+
 ### Lookup tables (in `contentApi.js`)
 
 - `STATUS_LABELS`: `COMPLETED | IN_PROGRESS | ONGOING | PLANNED | ON_HOLD | ARCHIVED` → display labels.

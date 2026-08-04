@@ -113,5 +113,114 @@
         "profile": "https://www.linkedin.com/in/ishubhamrath"
       }
     }
+  },
+  "projects": {
+    "title": "Projects",
+    "items": [
+      {
+        "id": "portfolio",
+        "title": "Interactive Portfolio",
+        "shortDescription": "A single-page React portfolio with a live WebGL background, GSAP animations, custom cursors, and spatial sound effects.",
+        "description": "<h2>Overview</h2><p>This portfolio site is a showcase of my work at the intersection of web development and computer graphics. Built with React 19 and Vite, it uses a live WebGL shader for the background, GSAP for scroll animations, and Howler for spatial sound.</p><h3>Key Features</h3><ul><li>Live WebGL Silk background shader</li><li>GSAP-powered scroll-triggered animations</li><li>Custom cursor with hover targeting</li><li>Spatial sound effects with mute toggle</li><li>Full-screen detail overlays via react-router-dom</li><li>Dark theme with glassmorphism cards</li></ul><h3>Tech Stack</h3><p>React 19, Vite 6, Tailwind CSS v4, GSAP, ogl/WebGL, Howler</p>",
+        "image": "https://images.unsplash.com/photo-1498050110915-385e84fb5b76?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80",
+        "carouselImages": [
+          "https://images.unsplash.com/photo-1498050110915-385e84fb5b76?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80",
+          "https://images.unsplash.com/photo-1555066931-4365d33339d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80"
+        ],
+        "tech": ["REACTJS", "TAILWIND", "JAVASCRIPT", "NODEJS", "HTML", "CSS"],
+        "github": "https://github.com/ishubhamrathi/portfolio",
+        "deployed": "https://ishubhamrathi.dev",
+        "categoryPath": "portfolio",
+        "topCategory": "FRONTEND",
+        "status": "COMPLETED",
+        "visibility": "SHOW"
+      },
+      {
+        "id": "spiritual-mantra",
+        "title": "Spiritual Mantra",
+        "shortDescription": "Winner of LPU Hackathon 2023 — a meditation app delivering ambient soundscapes and personalized mantra recommendations.",
+        "description": "<h2>The Concept</h2><p>Meditation meets technology. Spiritual Mantra helps users find calm through curated ambient soundscapes and AI-recommended mantras based on mood detection.</p><h3>Features</h3><ul><li>Real-time mood detection from user input</li><li>Curated ambient sound library</li><li>Personalized daily mantra recommendations</li><li>Progress tracking and streaks</li></ul><h3>Architecture</h3><p>Built with a React frontend and Node.js + MongoDB backend. The recommendation engine uses a simple rule-based system that maps moods to mantras, with plans to integrate ML for deeper personalization.</p><h3>Recognition</h3><p>Won the Best UI/UX award at LPU Hackathon 2023 out of 80+ teams.</p>",
+        "image": "https://images.unsplash.com/photo-1505692794544-9f4d8a60f0c8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80",
+        "tech": ["REACTJS", "NODEJS", "MONGODB", "TAILWIND"],
+        "github": "https://github.com/ishubhamrathi/spiritual-mantra",
+        "deployed": "",
+        "categoryPath": "hackathon",
+        "topCategory": "FULLSTACK",
+        "status": "COMPLETED",
+        "visibility": "SHOW"
+      },
+      {
+        "id": "visionlab",
+        "title": "VisionLab",
+        "shortDescription": "A computer vision toolkit for edge detection, face recognition, and object tracking, built with Python and OpenCV.",
+        "description": "<h2>VisionLab Toolkit</h2><p>A collection of computer vision utilities that demonstrate core CV techniques — edge detection, feature matching, face recognition, and motion tracking — all built from scratch with Python and OpenCV.</p><h3>Modules</h3><ul><li><strong>EdgeFlow</strong> — Canny edge detection with multi-scale Gaussian pre-filtering for real-time video streams.</li><li><strong>FaceTrace</strong> — Haar cascade face detection combined with a Kalman filter for jitter-free tracking.</li><li><strong>MotionWatch</strong> — Background subtraction and optical flow for motion detection.</li></ul><h3>Web Integration</h3><p>The toolkit exposes a Flask API that serves detection results to a React dashboard, creating a full pipeline from camera capture to browser visualization.</p>",
+        "image": "https://images.unsplash.com/photo-1542831371-2979f8037775?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80",
+        "tech": ["PYTHON", "OPENCV", "JAVASCRIPT", "NODEJS"],
+        "github": "https://github.com/ishubhamrathi/visionlab",
+        "deployed": "",
+        "categoryPath": "ai-ml",
+        "topCategory": "AI_ML",
+        "status": "COMPLETED",
+        "visibility": "SHOW"
+      },
+      {
+        "id": "taskflow",
+        "title": "TaskFlow",
+        "shortDescription": "A collaborative task management app with real-time updates, built with React, Node.js, and MongoDB.",
+        "description": "<h2>Real-Time Collaboration</h2><p>TaskFlow brings teams together with real-time task boards, live cursor presence, and instant notifications. Built as a full-stack JavaScript application from the ground up.</p><h3>Tech Choices</h3><ul><li><strong>React + Socket.IO</strong> — the frontend syncs task updates in real-time across all connected clients.</li><li><strong>Node.js + MongoDB</strong> — event-driven backend with change streams for live updates.</li><li><strong>Tailwind CSS</strong> — utility-first styling with custom dark theme.</li></ul><h3>Performance</h3><p>Implemented query optimization with MongoDB indexing on project and user fields. Virtualized task lists handle 500+ items without jank. Redis caching on user profiles cuts response times to under 10ms.</p>",
+        "image": "https://images.unsplash.com/photo-1581090763149-5fd2efe4a0f0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80",
+        "tech": ["REACTJS", "NODEJS", "MONGODB", "TAILWIND"],
+        "github": "https://github.com/ishubhamrathi/taskflow",
+        "deployed": "",
+        "categoryPath": "fullstack",
+        "topCategory": "FULLSTACK",
+        "status": "COMPLETED",
+        "visibility": "SHOW"
+      }
+    ]
+  },
+  "blogs": {
+    "title": "Writing",
+    "posts": [
+      {
+        "id": "building-interactive-portfolio",
+        "slug": "building-interactive-portfolio-react-webgl",
+        "title": "Building an Interactive Portfolio with React & WebGL",
+        "excerpt": "How I built this portfolio site — a single-page React app with a live WebGL background, GSAP-driven animations, custom cursors, and spatial sound effects.",
+        "content": "<h2>The Spark</h2><p>Every developer's portfolio is a love letter to their craft. For me, it became a playground to explore the intersection of performance, interactivity, and aesthetics — and to ship something that genuinely reflects how I think about building software.</p><h3>Tech Stack</h3><ul><li><strong>React 19 + Vite 6</strong> — the foundation. Fast HMR and out-of-the-box ESM.</li><li><strong>Tailwind CSS v4</strong> — utility-first styling with a dark-theme token system.</li><li><strong>ogl / WebGL</strong> — the Silk background shader, compiled to a single <code>647 kB</code> chunk.</li><li><strong>GSAP</strong> — scroll-triggered animations, staggered reveals, and smooth transitions.</li><li><strong>Howler</strong> — spatial sound effects (hover, click, navigation) that respect <code>prefers-reduced-motion</code>.</li></ul><h3>Architecture Decisions</h3><p>The app is a one-page scroll site with anchor navigation. But project and blog detail views open as immersive full-screen overlays via <code>react-router-dom</code> routes — the home sections stay mounted underneath so closing never triggers a re-mount or flash. This keeps the WebGL background alive and the UX buttery.</p><h3>The WebGL Background</h3><p>Silk renders a custom fragment shader that creates a flowing, noise-driven gradient. On mobile (<code>&lt;768px</code>) it's disabled for battery and performance — the CSS gradient fallback takes over. <code>prefers-reduced-motion</code> kills both the shader animation and the custom cursor.</p><h3>Lessons Learned</h3><ol><li><strong>Bundle budget is real.</strong> The Silk chunk is the biggest offender at <code>866 kB</code> raw. Lazy-loading it below-the-fold or code-splitting could cut the initial load dramatically.</li><li><strong>Graceful fallbacks everywhere.</strong> The site works with the entire backend down — content falls back from <code>/api/content</code> to <code>content.json</code>, and the ambient audio falls back to a generated drone tone.</li><li><strong>Accessibility first.</strong> Respecting <code>prefers-reduced-motion</code> and reducing motion on touch devices wasn't an afterthought — it shaped the component design from day one.</li></ol><h3>Looking Ahead</h3><p>The next iteration will tackle code-splitting the Silk background, pruning unused effect libraries, and adding proper ESLint with Prettier for consistent style enforcement. The journey never really ends — but the site ships today.</p>",
+        "author": "Shubham Rathi",
+        "publishedAt": "2025-01-15T00:00:00Z",
+        "image": "https://images.unsplash.com/photo-1498050110915-385e84fb5b76?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80",
+        "category": "Development",
+        "tags": ["React", "WebGL", "GSAP", "Vite", "Tailwind CSS"],
+        "readingTime": "8 min read"
+      },
+      {
+        "id": "computer-vision-with-opencv",
+        "slug": "computer-vision-projects-with-opencv",
+        "title": "Practical Computer Vision Projects with OpenCV",
+        "excerpt": "Exploring real-world computer vision applications built with Python and OpenCV — from object detection and edge detection to face recognition and motion tracking.",
+        "content": "<h2>Why Computer Vision</h2><p>Computer vision bridges the gap between the digital and physical worlds. As someone who started with web development, diving into CV opened up an entirely new dimension of problem-solving — one where pixels aren't just rendered, they're understood.</p><h3>Project 1: Real-Time Edge Detection</h3><p>The classic Canny edge detector is a gateway. But tuning it for real-time video required balancing kernel sizes, thresholds, and frame-rate. The key insight: blur lightly with a Gaussian filter first, then let Canny do its work. The result was a fluid 30 FPS pipeline that could run on a laptop webcam.</p><h3>Project 2: Face Detection & Tracking</h3><p>Using Haar cascades for frontal face detection is reliable but slow. For tracking, I implemented a Kalman filter that predicts position between detections — this smoothed jitter and maintained tracking even when the face briefly left the frame. The combination of detection + prediction was far more robust than either alone.</p><h3>Project 3: Object Detection with YOLO</h3><p>YOLOv5 (via PyTorch) gave me bounding boxes in real-time. The challenge was optimizing inference — quantizing the model and batching frames brought latency down to ~15ms per frame. I also built a lightweight API wrapper so the model could be consumed by a React frontend.</p><h3>Lessons</h3><ul><li><strong>Data quality matters more than model choice.</strong> Noisy training data will silently tank your precision.</li><li><strong>Preprocessing is half the pipeline.</strong> Color space conversion (BGR ↔ HSV), histogram equalization, and noise reduction often matter more than the algorithm itself.</li><li><strong>Web integration is the frontier.</strong> Running CV in the browser via TensorFlow.js or WebAssembly is increasingly viable for lightweight tasks.</li></ul><h3>Tech Stack</h3><p>Python, OpenCV, NumPy, PyTorch, Flask, and a React frontend for dashboards. The full pipeline — from camera capture to result display — runs end-to-end with sub-200ms latency.</p>",
+        "author": "Shubham Rathi",
+        "publishedAt": "2024-08-20T00:00:00Z",
+        "image": "https://images.unsplash.com/photo-1542831371-2979f8037775?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80",
+        "category": "AI/ML",
+        "tags": ["Python", "OpenCV", "Computer Vision", "PyTorch"],
+        "readingTime": "12 min read"
+      },
+      {
+        "id": "fullstack-performance",
+        "slug": "fullstack-performance-optimizing-react-node",
+        "title": "Full-Stack Performance: Optimizing React + Node APIs",
+        "excerpt": "A deep dive into practical performance optimization techniques for React frontends and Node.js + MongoDB backends — from database indexing to lazy loading strategies.",
+        "content": "<h2>The Performance Mindset</h2><p>Performance isn't a post-launch concern — it's a design constraint. Every millisecond of latency erodes user trust. In full-stack applications, bottlenecks hide in unexpected places: the database query you forgot to index, the component re-rendering unnecessarily, the response payload carrying 50 fields the client doesn't need.</p><h3>Frontend: React Optimizations</h3><p>The biggest wins came from:</p><ul><li><strong>Code-splitting</strong> with <code>React.lazy</code> + <code>Suspense</code>. Route-level splitting cut the initial bundle by <code>60%</code>.</li><strong>Memoization</strong> with <code>useMemo</code> and <code>useCallback</code> to prevent expensive recalculations. This is especially critical in list rendering where a single unmemoized function can cascade re-renders through the entire tree.</li><li><strong>Virtualization</strong> for long lists. <code>react-window</code> made rendering hundreds of project cards trivially smooth.</li></ul><h3>Backend: Node.js + MongoDB</h3><p><strong>Indexing strategy:</strong> Composite indexes on the fields you filter and sort by together. A single <code>db.projects.createIndex({ category: 1, sortOrder: 1 })</code> turned a 3-second query into 15ms.</p><p><strong>Projection:</strong> Only select the fields the client needs. Returning full documents with nested arrays when the client needs a title and thumbnail is a common waste.</p><p><strong>Connection pooling:</strong> Reusing MongoDB connections per request — closing connections after each query created connection storms under load.</p><h3>Caching Layer</h3><p>A Redis layer for read-heavy endpoints (project listings, stats) brought 99th-percentile latency from <code>120ms</code> to <code>&lt;5ms</code>. Cache invalidation is the hard problem — I used a simple TTL + explicit invalidation on writes.</p><h3>Measuring</h3><p>Without metrics, you're guessing. Lighthouse for frontend, <code>clinic.js</code> for backend profiling, and custom middleware logging response times. The rule: measure first, optimize second, verify third.</p><h3>Quick Wins</h3><ol><li>Enable gzip/brotli on your CDN and server.</li><li>Leverage HTTP/2 for multiplexed requests.</li><li>Preload critical fonts and above-the-fold images.</li><li>Use <code>loading='lazy'</code> on everything below the fold.</li></ol>",
+        "author": "Shubham Rathi",
+        "publishedAt": "2024-11-03T00:00:00Z",
+        "image": "https://images.unsplash.com/photo-1555066931-4365d33339d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80",
+        "category": "Development",
+        "tags": ["React", "Node.js", "MongoDB", "Performance", "Redis"],
+        "readingTime": "6 min read"
+      }
+    ]
   }
 }
