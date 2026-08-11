@@ -1,6 +1,8 @@
 # Content resources
 
-`content.json` remains the **fallback / migration source** for Home, About, Social, Stats labels, and legacy projects.
+The site is **API-only** — `content.json` was removed. If `GET /api/content` fails or is missing any core section (`home`, `about`, `stats`, portfolio projects, socials), `checkContent()` throws and `App.jsx` renders the **MaintenanceScreen** instead of the page.
+
+> Backend must also serve `home`, `about`, and `stats`. Full field spec: see [`CONTENT_REQUIREMENTS.md`](./CONTENT_REQUIREMENTS.md).
 
 ## Live APIs (`VITE_API_BASE`, default `http://localhost:8080`)
 
@@ -46,7 +48,7 @@ Public project data lives under `response.portfolio.projects.items` in the `GET 
 
 ### Social links (footer)
 
-Public social data lives under `response.socials` in the `GET /api/content` response — an array of active rows (sorted by `display_order`). `getSocial()` (`src/services/contentApi.js`) normalizes each row with `mapApiSocial()` and falls back to `content.json` on failure or when empty. Set `VITE_USE_API_SOCIAL=false` to force local-only.
+Public social data lives under `response.socials` in the `GET /api/content` response — an array of active rows (sorted by `display_order`). `getSocial()` (`src/services/contentApi.js`) normalizes each row with `mapApiSocial()`. The consolidated endpoint must also serve `response.home`, `response.about`, and `response.stats` (consumed by `getHome()`, `getAbout()`, `getStatsConfig()`) — any missing section throws `ContentUnavailableError` and shows the maintenance screen.
 
 | Public API field | UI field |
 |---|---|

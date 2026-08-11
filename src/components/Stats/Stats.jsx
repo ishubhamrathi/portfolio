@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import GlassSurface from '@/components/GlassSurface'
 import CountUp from '@/components/CountUp'
 import AnimatedContent from '@/components/AnimatedContent'
-import { getStatsConfig } from '@/services/contentApi'
+import { getPlatformApiKey, getStatsConfig } from '@/services/contentApi'
+
+const PLATFORM_API_KEY = getPlatformApiKey()
+const platformHeaders = PLATFORM_API_KEY ? { 'X-API-Key': PLATFORM_API_KEY } : {}
 
 export default function Stats() {
   const [config, setConfig] = useState(null)
@@ -14,8 +17,8 @@ export default function Stats() {
     getStatsConfig().then(setConfig)
   }, [])
 
-   useEffect(() => {
-    fetch('https://leetcode-stats-api.herokuapp.com/ishubhamrathi')
+  useEffect(() => {
+    fetch('https://leetcode-stats-api.herokuapp.com/ishubhamrathi', { headers: platformHeaders })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
@@ -30,12 +33,18 @@ export default function Stats() {
             ranking: data.ranking,
           })
         } else {
-          setLeetcodeStats({ totalSolved: 150, easy: 80, medium: 50, hard: 20, ranking: 125000 })
+          // PLACEHOLDER - fake fallback values, not real API data
+          // setLeetcodeStats({ totalSolved: 150, easy: 80, medium: 50, hard: 20, ranking: 125000 })
+          setLeetcodeStats(null)
         }
       })
-      .catch(() => setLeetcodeStats({ totalSolved: 150, easy: 80, medium: 50, hard: 20, ranking: 125000 }))
+      .catch(() => {
+        // PLACEHOLDER - fake fallback values, not real API data
+        // setLeetcodeStats({ totalSolved: 150, easy: 80, medium: 50, hard: 20, ranking: 125000 })
+        setLeetcodeStats(null)
+      })
 
-    fetch('https://api.github.com/users/ishubhamrathi')
+    fetch('https://api.github.com/users/ishubhamrathi', { headers: platformHeaders })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
@@ -49,12 +58,15 @@ export default function Stats() {
       })
       .catch(() => setGithubStats({ followers: 0, following: 0, publicRepos: 0 }))
 
-    setLinkedinStats({
-      experienceYears: 2,
-      projects: 10,
-      role: 'Software Development Intern',
-      skills: 'Full Stack & Computer Vision',
-    })
+    // PLACEHOLDER - hardcoded LinkedIn stats, not from API
+    // TODO: Fetch from LinkedIn API or add to /api/content
+    // setLinkedinStats({
+    //   experienceYears: 2,
+    //   projects: 10,
+    //   role: 'Software Development Intern',
+    //   skills: 'Full Stack & Computer Vision',
+    // })
+    setLinkedinStats(null)
   }, [])
 
   if (!config) return <section id="stats" className="px-6 py-24" />
@@ -194,7 +206,7 @@ export default function Stats() {
                 </a>
               </div>
             ) : (
-              <p className="mt-4 text-muted">Loading...</p>
+              <p className="mt-4 text-muted">Not available</p>
             )}
           </GlassSurface>
         </AnimatedContent>

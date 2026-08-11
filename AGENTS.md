@@ -41,8 +41,8 @@ src/
     Project/ProjectDetailPage.jsx # Full-screen detail route (rich description, carousel, close cross)
     <effect components>/   # Reusable animation/UI primitives (BlurText, DecryptedText, GlassSurface, Magnet, etc.)
   context/SoundProvider.jsx  # howler-based SFX + ambient audio; exposes useSound() hook
-  services/contentApi.js   # ALL data access. Reads content.json + optional backend API. Central content mapping lives here.
-  resources/content.json   # Fallback + migration content source (the "database" when no API).
+  services/contentApi.js   # ALL data access. API-only (GET /api/content + widget catalog). Central content mapping lives here.
+  resources/README.md      # Documents the live API schema + frontend mapping (keep in sync with contentApi.js).
   data/projects.JSON       # EMPTY file — unused, do not treat as a data source.
   store/                   # EMPTY leftover dir (redux removed). Ignore.
   lib/utils.js             # cn() helper (clsx + tailwind-merge). Rarely used.
@@ -51,24 +51,22 @@ src/
 ### Content flow (IMPORTANT)
 
 - `contentApi.js` is the **only** module that should touch data. Components call `getHome()`, `getAbout()`, `getSocial()`, `getStatsConfig()`, `getProjects()`, `getCategories()`, `getWidgetCatalog()`, `getBlogPosts()`, `getContactEndpoint()`.
-- Home/About/Social/Stats always come from `src/resources/content.json` (not yet on backend).
-- Projects/Blog prefer a backend API at `VITE_API_BASE` (default `http://localhost:8080`) and **silently fall back** to `content.json` on failure. A "Source: live API / content.json fallback" label is shown in the Projects section.
-- `GET /api/portfolio/projects` returns `{ projects: { title, items: [...] } }` (public schema, pre-filtered to `visibility_status = 'SHOW'`, sorted by `sort_order`; params `categoryPath` + `limit` ≤ 200). The Projects filter bar is driven by `GET /api/portfolio/categories` (`categoryPath` chips) and hides when that fails. Each item's `status`/`topCategory`/`visibility` are `{ value, label }` objects and `tech` is `[{ value, label, icon }]` (icon = URL); `shortDescription`/`description` are HTML (`description` is rendered rich-text on the `/projects/:id` page, `shortDescription` is tag-stripped for the card). `mapApiProject()` normalizes all of this (`tech` → `[{ code, label, icon }]`) and tolerates the legacy camelCase/string shape, with static `STATUS_LABELS` / `TOP_CATEGORY_LABELS` / `TECH_LABELS` as fallback. `getWidgetCatalog()` / `buildTechLookup()` are retained but not required for rendering.
-- API→UI field mapping lives in `mapApiProject()` and `mapLegacyProject()` in `contentApi.js` (accepts both the refreshed snake_case schema and legacy camelCase). If you change backend fields, update the mapping + `src/resources/README.md`.
+- **API-only, no local fallback.** `content.json` was removed. Every section reads from the consolidated `GET {VITE_API_BASE}/api/content` (default `http://localhost:8080`): `home`, `about`, `stats`, `portfolio.projects.items`, `socials`, `blogs.posts`, `feature_flags`. If the fetch fails or any core section is missing/empty, `checkContent()` throws a `ContentUnavailableError` and `App.jsx` renders the **MaintenanceScreen** ("Website is under maintenance") instead of the page.
+- `getHome()`, `getAbout()`, `getStatsConfig()` return the `home`/`about`/`stats` blocks and throw `ContentUnavailableError` when absent — the backend must serve them.
+- `getSocial()` normalizes `response.socials` with `mapApiSocial()`. `getProjects()` reads `response.portfolio.projects.items` (public schema, pre-filtered to `visibility_status = 'SHOW'`, sorted by `sort_order`) and maps each item with `mapApiProject()`. An empty filtered result stays empty (no legacy list to fall back to).
+- The Projects filter bar is driven by `getCategories()` (distinct `categoryPath` values from the portfolio items). Each item's `status`/`topCategory`/`visibility` are `{ value, label }` objects and `tech` is `[{ value, label, icon }]` (icon = URL); `shortDescription`/`description` are HTML (`description` is rendered rich-text on the `/projects/:id` page, `shortDescription` is tag-stripped for the card). `mapApiProject()` normalizes all of this (`tech` → `[{ code, label, icon }]`) with static `STATUS_LABELS` / `TOP_CATEGORY_LABELS` / `TECH_LABELS` as label fallbacks. `getWidgetCatalog()` / `buildTechLookup()` are retained but not required for rendering.
+- API→UI field mapping lives in `mapApiProject()` / `mapApiSocial()` / `mapApiBlogPost()` in `contentApi.js` (accepts the refreshed snake_case schema). If you change backend fields, update the mapping + `src/resources/README.md`.
 
 ### Feature flags
 
-- `getFeatures()` hits `GET {API_BASE}/api/features?category=portfolio`. If `flags.blog === false`, the Blog section and nav item are hidden. On any failure it returns `{ flags: {} }` (blog shows).
-- `VITE_USE_API_PROJECTS=false` forces local projects. `VITE_USE_API_BLOG=false` disables blog entirely.
+- `getFeatures()` reads `response.feature_flags` from the consolidated `GET /api/content` call. If `flags.blog === false`, the Blog section and nav item are hidden. On any failure it returns `{ flags: {} }` (blog shows).
 
 ### Env vars (see `.env.example`)
 
 | Var | Default | Purpose |
 |---|---|---|
-| `VITE_API_BASE` | `http://localhost:8080` | Backend API root |
-| `VITE_USE_API_PROJECTS` | `true` | Use API projects or local only |
-| `VITE_USE_API_SOCIAL` | `true` | Use API socials or local only |
-| `VITE_USE_API_BLOG` | `true` | Use API blog or none |
+| `VITE_API_BASE` | `http://localhost:8080` | Backend API root (single source of truth — no local fallback) |
+| `VITE_PLATFORM_API_KEY` | _(empty)_ | API key for third-party platform API calls (GitHub, LeetCode stats). Sent as `X-API-Key: <key>` (format `pk_<prefix>_<secret>`) from `Stats.jsx` via `getPlatformApiKey()`. Must be `VITE_`-prefixed; never commit the real value |
 | `VITE_USE_SECTION_SCROLL` | `false` | Section auto-scroll (one section per wheel swipe, fling skips to end). Experimental — glides can overshoot, disabled by default |
 
 Contact form: posts to `POST {API_BASE}/api/contact` (public) with `sender_name`, `sender_email`, `subject`, `message`. Message box is a BlockNote rich-text editor (`MessageEditor.jsx`, lazy-loaded) — the typed content is sent as Markdown.
@@ -97,12 +95,12 @@ High priority:
 3. **Dead code cleanup.** Unused components (not imported anywhere): `ChromaGrid.jsx`, `GlassIcons.jsx`, `SplashCursor.jsx`, `SplitText.jsx`, `TiltedCard.jsx`. Also empty/unused: `src/data/projects.JSON`, `src/store/` (both empty files), `src/setupTests.js` (imports a package that isn't installed). Verify before deleting.
 4. **Fabricated/placeholder data.**
    - `Stats.jsx`: hardcoded fake LinkedIn stats (2 years, 10 projects, "Software Development Intern") and fake LeetCode fallback numbers (150 solved / rank 125000). Remove hardcoding or source real data.
-   - `content.json`: `"company": "XYZ Company"`, "BTech Completed 2024", `photo: "/me.jpg"` (file does not exist — relies on GitHub avatar fallback), and `via.placeholder.com` image URLs in the OpenCV project. Replace with real content or remove.
+   - The old `content.json` held `"company": "XYZ Company"`, "BTech Completed 2024", `photo: "/me.jpg"` (file does not exist — relies on GitHub avatar fallback), and `via.placeholder.com` image URLs. It is now deleted — the backend `/api/content` response must serve real `home`/`about`/`stats` content instead.
 5. **Contact form posts to the backend.** `POST {API_BASE}/api/contact` with `sender_name`/`sender_email`/`subject`/`message` (message sent as Markdown from the BlockNote editor). Requires the backend to be reachable; on failure the form shows a generic error.
 
 Medium priority:
 6. **Missing assets.** `public/me.jpg` and `public/audio/ambient.mp3` are referenced but don't exist (SoundProvider falls back to a generated drone tone; About falls back to GitHub avatar). Add real files or drop references.
-7. **Backend coupling (partially addressed).** Category filter hides when `/api/portfolio/categories` is down (`getCategories()` falls back to the widget catalog's `topCategories`, then `[]`). Note: when the API returns zero projects for a filter, `getProjects` currently falls back to the full legacy list — revisit so an empty filtered result stays empty.
+7. **Backend coupling (partially addressed).** Category filter derives from `getCategories()` (portfolio item `categoryPath` values); hides when empty. When the API returns zero projects for a filter, the filtered result stays empty (no legacy fallback since content.json removal).
 8. **No lint/format tooling.** Add ESLint (+ optional Prettier) and a `lint` script so agents/humans can verify code style consistently.
 
 Low priority / polish:
@@ -113,7 +111,8 @@ Low priority / polish:
 ## Rules of thumb for agents
 
 - Verify every change with `npm run build`.
-- If you edit `content.json`, keep the JSON schema intact (components read specific keys: `home.nav`, `about.timeline`, `projects.items`, `social.links`, `stats.profiles`).
+- If you change the API schema, update `contentApi.js` mappings + `src/resources/README.md`.
 - If you add an animation/effect, check `src/components/` for an existing equivalent first.
-- Never hardcode personal data (stats, links, employer names) — put it in `content.json` or env vars.
-- Do not remove the graceful fallbacks in `contentApi.js` — the site must render with the backend down.
+- Never hardcode personal data (stats, links, employer names) — the backend `/api/content` serves it all.
+- `checkContent()` is the global gate: if the API is down or a core section is missing, the app renders the MaintenanceScreen. Do not re-introduce local fallback data.
+- **Never surface raw API errors (status codes, exception messages, URLs) in the UI** — the MaintenanceScreen and all error states must show user-friendly copy only (e.g. "Website is under maintenance"). Log details to the console instead.

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Noise from '@/components/Noise'
 import TargetCursor from '@/components/TargetCursor'
 import FaultyTerminal from '@/components/FaultyTerminal/FaultyTerminal'
+import DotField from '@/components/DotField/DotField'
 
 export default function GlobalEffects() {
   const [reduceMotion, setReduceMotion] = useState(false)
@@ -27,25 +28,41 @@ export default function GlobalEffects() {
       <div className="pointer-events-none fixed inset-0 -z-10 bg-bg">
         {!reduceMotion && !isMobile ? (
           <div className="absolute inset-0 h-full w-full">
-            <FaultyTerminal
-              scale={1.5}
-              gridMul={[2, 1]}
-              digitSize={1.2}
-              timeScale={0.5}
-              pause={false}
-              scanlineIntensity={0.5}
-              glitchAmount={1}
-              flickerAmount={1}
-              noiseAmp={1}
-              chromaticAberration={0}
-              dither={0}
-              curvature={0.1}
-              tint="#605454"
-              mouseReact
-              mouseStrength={0.5}
-              pageLoadAnimation
-              brightness={0.6}
+            <DotField
+              dotRadius={1.2}
+              dotSpacing={16}
+              bulgeStrength={40}
+              glowRadius={140}
+              sparkle={false}
+              waveAmplitude={0}
+              cursorRadius={400}
+              cursorForce={0.08}
+              bulgeOnly
+              gradientFrom="rgba(168, 85, 247, 0.08)"
+              gradientTo="rgba(180, 151, 207, 0.05)"
+              glowColor="#120F17"
             />
+            <div className="absolute inset-0 h-full w-full opacity-20 blur-[1px]">
+              <FaultyTerminal
+                scale={1.3}
+                gridMul={[2, 1]}
+                digitSize={1.2}
+                timeScale={0.3}
+                pause={false}
+                scanlineIntensity={0.3}
+                glitchAmount={0.5}
+                flickerAmount={0.5}
+                noiseAmp={0.5}
+                chromaticAberration={0}
+                dither={0}
+                curvature={0.1}
+                tint="#605454"
+                mouseReact
+                mouseStrength={0.3}
+                pageLoadAnimation
+                brightness={0.4}
+              />
+            </div>
           </div>
         ) : (
           <div
@@ -56,7 +73,7 @@ export default function GlobalEffects() {
             }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
       </div>
 
       {!reduceMotion && !isMobile && (

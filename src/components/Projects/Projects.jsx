@@ -51,7 +51,9 @@ export default function Projects() {
 
   const handleCardClick = (item) => {
     if (!item) return
-    playClick()
+    try {
+      playClick()
+    } catch {}
     const project = (data.items || []).find((p) => p.id === item.id)
     navigate(item.url, { state: { project } })
   }

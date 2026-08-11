@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Howl } from 'howler'
+import { Howl, Howler } from 'howler'
 
 const SoundContext = createContext(null)
 
@@ -50,7 +50,7 @@ function createToneDataUri(frequency, duration = 0.08, type = 'sine', volume = 0
 }
 
 export function SoundProvider({ children }) {
-  const [muted, setMuted] = useState(true)
+  const [muted, setMuted] = useState(false)
   const [volume, setVolume] = useState(0.35)
   const [unlocked, setUnlocked] = useState(false)
   const ambientRef = useRef(null)
@@ -87,6 +87,7 @@ export function SoundProvider({ children }) {
       h.mute(muted)
     })
     if (!muted && unlocked) {
+      if (Howler.ctx?.state === 'suspended') Howler.ctx.resume().catch(() => {})
       if (!ambient.playing()) ambient.play()
     } else {
       ambient.pause()
@@ -95,14 +96,16 @@ export function SoundProvider({ children }) {
 
   const unlock = useCallback(() => {
     setUnlocked(true)
+    if (Howler.ctx?.state === 'suspended') Howler.ctx.resume().catch(() => {})
   }, [])
 
   const play = useCallback(
     (name) => {
       if (muted || !unlocked) return
-      sfxRef.current[name]?.play()
+      const sound = sfxRef.current[name]
+      if (sound) sound.play()
     },
-    [muted, unlocked]
+    [muted, unlocked],
   )
 
   const toggleMute = useCallback(() => {

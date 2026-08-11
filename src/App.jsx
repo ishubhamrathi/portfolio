@@ -3,6 +3,7 @@ import { BrowserRouter, useLocation, matchPath } from 'react-router-dom'
 import { SoundProvider, useSound } from '@/context/SoundProvider'
 import GlobalEffects from '@/components/layout/GlobalEffects'
 import PageLoader from '@/components/layout/PageLoader'
+import MaintenanceScreen from '@/components/layout/MaintenanceScreen'
 import SectionScroller from '@/components/layout/SectionScroller'
 import SiteNav from '@/components/layout/SiteNav'
 import ClickSpark from '@/components/ClickSpark'
@@ -14,17 +15,8 @@ import Blog from '@/components/Blog/Blog'
 import Social from '@/components/Social/Social'
 import ProjectDetailPage from '@/components/Project/ProjectDetailPage'
 import BlogDetailPage from '@/components/Blog/BlogDetailPage'
-import { getFeatures, getHome, getProjects, getSocial } from '@/services/contentApi'
+import { checkContent, getFeatures, getHome, getProjects, getSocial } from '@/services/contentApi'
 import { HiHome, HiFolder, HiUser, HiChartBar, HiNewspaper, HiEnvelope } from 'react-icons/hi2'
-
-const navIcons = {
-  '#home': HiHome,
-  '#projects': HiFolder,
-  '#about': HiUser,
-  '#stats': HiChartBar,
-  '#blog': HiNewspaper,
-  '#social': HiEnvelope,
-}
 
 const navColors = {
   '#home': '#3b82f6',
@@ -117,6 +109,38 @@ function AppShell() {
 
 function AppContent() {
   const location = useLocation()
+  const [contentState, setContentState] = useState({ status: 'loading' })
+
+  useEffect(() => {
+    let cancelled = false
+    checkContent()
+      .then(() => {
+        if (!cancelled) setContentState({ status: 'ready' })
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error('[content] Website is under maintenance:', error)
+          setContentState({ status: 'error' })
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (contentState.status === 'loading') {
+    return (
+      <>
+        <GlobalEffects />
+        <PageLoader done={false} />
+      </>
+    )
+  }
+
+  if (contentState.status === 'error') {
+    return <MaintenanceScreen />
+  }
+
   const detailMatch = matchPath('/projects/:id', location.pathname)
   const blogDetailMatch = matchPath('/blogs/:slug', location.pathname)
 

@@ -27,7 +27,9 @@ export default function ProjectCard({ project }) {
   } = project
 
   const openProject = () => {
-    playClick()
+    try {
+      playClick()
+    } catch {}
     navigate(`/projects/${project.id}`, { state: { project } })
   }
 

@@ -5,7 +5,7 @@ import TrueFocus from '@/components/TrueFocus'
 import { LogoLoop } from '@/components/LogoLoop'
 import GlassSurface from '@/components/GlassSurface'
 import ReflectiveCard from '@/components/ReflectiveCard'
-import { getAbout, content as fallbackContent } from '@/services/contentApi'
+import { getAbout } from '@/services/contentApi'
 
 export default function About() {
   const [about, setAbout] = useState(null)
@@ -14,8 +14,8 @@ export default function About() {
   useEffect(() => {
     getAbout().then((data) => {
       setAbout(data)
-      const primary = data.photo || fallbackContent.about?.photo
-      const fallback = data.photoFallback || fallbackContent.about?.photoFallback
+      const primary = data.photo
+      const fallback = data.photoFallback
       if (!primary) {
         setPhotoSrc(fallback)
         return
@@ -88,7 +88,7 @@ export default function About() {
         <AnimatedContent distance={50} duration={0.7}>
           <ReflectiveCard
             imageSrc={photoSrc}
-            name={fallbackContent.home?.name || 'Shubham Rathi'}
+            name={about.name || 'Shubham Rathi'}
             role={about.role || 'Full Stack Developer'}
             idLabel="PORTFOLIO"
             idNumber="SR-DEV"
