@@ -31,7 +31,7 @@ const AnimatedTabBar = ({ items, onChange, selected = 0 }) => {
   return (
     <div
       ref={barRef}
-      className="relative flex w-full max-w-[min(100vw-1.5rem,32rem)] items-center rounded-full border border-white/10 bg-bg/40 p-1.5 shadow-lg backdrop-blur-xl"
+      className="relative mx-auto flex w-full max-w-[min(100vw-1.5rem,32rem)] items-center rounded-full border border-white/10 bg-bg/40 p-1.5 shadow-lg backdrop-blur-xl"
     >
       <div
         ref={indicatorRef}

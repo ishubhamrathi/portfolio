@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import DecryptedText from '@/components/DecryptedText'
-import BentoGrid from '@/components/BentoGrid/BentoGrid'
-import { useSound } from '@/context/SoundProvider'
+import FeaturedShowcase from '@/components/FeaturedShowcase/FeaturedShowcase'
 import { getCategories, getProjects } from '@/services/contentApi'
 
-const CARD_PALETTE = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#EC4899', '#22D3EE']
-const BENTO_LIMIT = 7
+const FEATURED_LIMIT = 3
 
 function stripHtml(html) {
   return (html || '')
@@ -16,47 +13,36 @@ function stripHtml(html) {
 }
 
 export default function Projects() {
-  const navigate = useNavigate()
-  const { playClick } = useSound()
   const [data, setData] = useState({ title: 'Projects', items: [], source: 'loading' })
   const [categories, setCategories] = useState([])
   const [activeCategory, setActiveCategory] = useState('')
-  const [viewAll, setViewAll] = useState(false)
 
   useEffect(() => {
     getCategories().then(setCategories)
   }, [])
 
   useEffect(() => {
-    setViewAll(false)
-  }, [activeCategory])
-
-  useEffect(() => {
     getProjects({ categoryPath: activeCategory || undefined }).then(setData)
   }, [activeCategory])
 
-  const items = (data.items || []).map((project, i) => {
-    const color = CARD_PALETTE[i % CARD_PALETTE.length]
-    return {
-      id: project.id,
-      image: project.image,
-      title: project.title,
-      subtitle: stripHtml(project.shortDescription || project.description).slice(0, 110),
-      handle: project.topCategoryLabel || project.categoryPath || '',
-      borderColor: color,
-      gradient: `linear-gradient(145deg, ${color}, #000)`,
-      url: `/projects/${project.id}`,
-    }
-  })
-
-  const handleCardClick = (item) => {
-    if (!item) return
-    try {
-      playClick()
-    } catch {}
-    const project = (data.items || []).find((p) => p.id === item.id)
-    navigate(item.url, { state: { project } })
-  }
+  const featuredItems = (data.items || []).map((project, i) => ({
+    id: project.id,
+    index: i,
+    number: String(i + 1).padStart(2, '0'),
+    title: project.title,
+    description: stripHtml(project.shortDescription || project.description),
+    category: project.topCategoryLabel || project.categoryPath || '',
+    thumbnails: (() => {
+      const thumb = project.image
+      const carousel = (project.carouselImages || project.screenshots || []).filter(Boolean)
+      return thumb ? [thumb, ...carousel] : carousel
+    })(),
+    previewType: project.previewType || 'auto',
+    tech: project.tech || [],
+    siteUrl: project.deployed || project.projectUrl || '',
+    url: `/projects/${project.id}`,
+    raw: project,
+  }))
 
   return (
     <section id="projects" className="relative px-6 py-24 md:px-12 lg:px-20">
@@ -103,31 +89,7 @@ export default function Projects() {
           ))}
         </div>
       ) : (
-        <div style={{ minHeight: 600, position: 'relative' }}>
-          <BentoGrid
-            items={viewAll ? items : items.slice(0, BENTO_LIMIT)}
-            radius={300}
-            damping={0.45}
-            fadeOut={0.6}
-            ease="power3.out"
-            spotlightRadius={400}
-            particleCount={12}
-            glowColor="132, 0, 255"
-            clickEffect
-            onCardClick={handleCardClick}
-          />
-          {items.length > BENTO_LIMIT && (
-            <div className="mt-8 text-center">
-              <button
-                type="button"
-                onClick={() => setViewAll((v) => !v)}
-                className="cursor-target rounded-full border border-border px-5 py-2 text-xs uppercase tracking-wider text-muted transition hover:border-fg hover:text-fg"
-              >
-                {viewAll ? 'Show less' : `View all (${items.length})`}
-              </button>
-            </div>
-          )}
-        </div>
+        <FeaturedShowcase items={featuredItems.slice(0, FEATURED_LIMIT)} />
       )}
     </section>
   )

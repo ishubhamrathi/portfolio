@@ -6,10 +6,11 @@ import Magnet from '@/components/Magnet'
 import SpecularButton from '@/components/SpecularButton'
 import { getContactEndpoint, getHome } from '@/services/contentApi'
 import { useSound } from '@/context/SoundProvider'
+import AskMeAnything from '@/components/AskMeAnything/AskMeAnything'
 
 const MessageEditor = lazy(() => import('@/components/MessageEditor/MessageEditor'))
 
-export default function Home() {
+export default function Home({ aiAssistantV2 = false }) {
   const [home, setHome] = useState(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' })
@@ -167,6 +168,10 @@ export default function Home() {
             </GlassSurface>
           </div>
         )}
+
+        <div className="mt-8 w-full max-w-2xl">
+          <AskMeAnything aiAssistantV2={aiAssistantV2} />
+        </div>
       </div>
     </section>
   )

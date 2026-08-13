@@ -11,18 +11,20 @@ import Home from '@/components/Home/Home'
 import Projects from '@/components/Projects/Projects'
 import About from '@/components/About/About'
 import Stats from '@/components/Stats/Stats'
+import BecomeAStar from '@/components/BecomeAStar/BecomeAStar'
 import Blog from '@/components/Blog/Blog'
 import Social from '@/components/Social/Social'
 import ProjectDetailPage from '@/components/Project/ProjectDetailPage'
 import BlogDetailPage from '@/components/Blog/BlogDetailPage'
 import { checkContent, getFeatures, getHome, getProjects, getSocial } from '@/services/contentApi'
-import { HiHome, HiFolder, HiUser, HiChartBar, HiNewspaper, HiEnvelope } from 'react-icons/hi2'
+import { HiHome, HiFolder, HiUser, HiChartBar, HiStar, HiNewspaper, HiEnvelope } from 'react-icons/hi2'
 
 const navColors = {
   '#home': '#3b82f6',
   '#projects': '#10b981',
   '#about': '#8b5cf6',
   '#stats': '#f59e0b',
+  '#star': '#fcd34d',
   '#blog': '#ef4444',
   '#social': '#06b6d4',
 }
@@ -75,6 +77,9 @@ function AppShell() {
       { label: labels.about || 'About', href: '#about', icon: <HiUser className="h-5 w-5" />, color: navColors['#about'] },
       { label: 'Stats', href: '#stats', icon: <HiChartBar className="h-5 w-5" />, color: navColors['#stats'] },
     ]
+    if (flags.light !== false) {
+      items.push({ label: labels.star || 'Star', href: '#star', icon: <HiStar className="h-5 w-5" />, color: navColors['#star'] })
+    }
     if (flags.blog !== false) {
       items.push({ label: labels.blog || 'Blog', href: '#blog', icon: <HiNewspaper className="h-5 w-5" />, color: navColors['#blog'] })
     }
@@ -90,10 +95,11 @@ function AppShell() {
           <GlobalEffects />
           <SiteNav items={navItems} />
           <main>
-            <Home />
+            <Home aiAssistantV2={flags.FEATURE_AI_ASSISTANT_V2 === true} />
             <Projects />
             <About />
             <Stats />
+            {flags.light !== false && <BecomeAStar />}
             {flags.blog !== false && <Blog />}
             <Social />
           </main>

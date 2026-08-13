@@ -1,0 +1,250 @@
+.starPanel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background:
+    radial-gradient(1100px 700px at 16% 8%, rgba(96, 88, 246, 0.16), transparent 60%),
+    radial-gradient(900px 620px at 84% 14%, rgba(14, 165, 233, 0.13), transparent 60%),
+    radial-gradient(1000px 820px at 52% 96%, rgba(168, 85, 247, 0.12), transparent 60%),
+    linear-gradient(180deg, #080a14 0%, #06070f 55%, #04050b 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 40px 90px -40px rgba(0, 0, 0, 0.85);
+}
+
+.vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    120% 90% at 50% 42%,
+    transparent 55%,
+    rgba(2, 3, 8, 0.55) 100%
+  );
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: pan-y;
+}
+
+/* ── Machine ─────────────────────────────────────────────── */
+
+.machine {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    rgba(6, 8, 18, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 30px 70px -30px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+.machineGlow {
+  transition: box-shadow 0.8s ease;
+}
+
+.machineActive {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 70px -12px rgba(147, 130, 255, 0.55),
+    0 30px 70px -30px rgba(0, 0, 0, 0.8);
+}
+
+.machineDisplay {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 220px;
+}
+
+.energyRing {
+  position: absolute;
+  width: 190px;
+  height: 190px;
+  border-radius: 999px;
+  border: 1px solid rgba(190, 180, 255, 0.35);
+  opacity: 0;
+}
+
+.energyRingSpin {
+  animation: ringSpin 2.6s linear infinite;
+}
+
+.energyRingPulse {
+  opacity: 1;
+  animation: ringPulse 1.4s ease-in-out infinite;
+}
+
+.energyRing::before,
+.energyRing::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border-radius: 999px;
+  border: 1px dashed rgba(190, 180, 255, 0.28);
+}
+
+.energyRing::after {
+  inset: 26px;
+  border: 1px solid rgba(190, 180, 255, 0.16);
+}
+
+@keyframes ringSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ringPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes machineBreath {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.machineBreath {
+  animation: machineBreath 2.2s ease-in-out infinite;
+}
+
+@keyframes reelFlicker {
+  0% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.reelFlicker {
+  animation: reelFlicker 90ms steps(2) infinite;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Tooltip ─────────────────────────────────────────────── */
+
+.tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 30;
+  min-width: 150px;
+  max-width: 200px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: rgba(8, 10, 22, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, calc(-100% - 14px));
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+  background: rgba(8, 10, 22, 0.86);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tooltipName {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #f5f5f5;
+}
+
+.tooltipDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.tooltipMeta {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #a3a3a3;
+}
+
+.tooltipMeta strong {
+  font-weight: 600;
+  color: #d4d4d4;
+}
+
+@keyframes slowPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.35);
+  }
+}
+
+.slowPulse {
+  animation: slowPulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .energyRingSpin,
+  .energyRingPulse,
+  .machineBreath,
+  .reelFlicker,
+  .slowPulse {
+    animation: none;
+  }
+}

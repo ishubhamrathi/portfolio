@@ -1,0 +1,63 @@
+.featured-showcase-desktop {
+  position: relative;
+}
+
+.featured-showcase-track {
+  width: 55%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.featured-showcase-track::-webkit-scrollbar {
+  display: none;
+}
+
+.featured-showcase-project-block {
+  /* Groups slots per project */
+}
+
+.featured-showcase-slot {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) and (max-width: 1440px) {
+  .featured-showcase-slot {
+    padding: 1rem 2rem;
+  }
+  .featured-showcase-track {
+    width: 58%;
+  }
+  .featured-showcase-overview {
+    width: 42%;
+  }
+}
+
+.featured-showcase-overview {
+  width: 45%;
+  position: relative;
+}
+
+/* View All Projects section */
+.featured-showcase-view-all {
+  margin-top: 2rem;
+}
+
+@media (max-width: 1023px) {
+  .featured-showcase-desktop {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .featured-showcase-track {
+    scroll-snap-type: none;
+  }
+}

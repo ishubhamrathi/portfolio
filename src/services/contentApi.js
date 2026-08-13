@@ -195,6 +195,25 @@ function toEnum(value) {
 }
 
 /**
+ * Normalize a metrics list into [{ value, label }].
+ * Supports `{ value, label }`, `{ metric, title }`, or before/after
+ * `{ before, after, label }` pairs (rendered as "before → after").
+ */
+function normalizeMetrics(metrics) {
+  if (!Array.isArray(metrics)) return []
+  return metrics
+    .map((m) => {
+      if (!m || typeof m !== 'object') return null
+      const hasPair = m.before != null && m.after != null
+      return {
+        value: hasPair ? `${m.before} → ${m.after}` : (m.value ?? m.metric ?? ''),
+        label: m.label ?? m.title ?? '',
+      }
+    })
+    .filter((m) => m && (m.value || m.label))
+}
+
+/**
  * Normalize a tech list into [{ code, label, icon }].
  * Items may be plain codes or `{ value, label, icon }` objects (public API).
  */
@@ -221,12 +240,21 @@ export function mapApiProject(project) {
   const urls = project.urls && typeof project.urls === 'object' ? project.urls : {}
   const image =
     project.thumbnail_image_url || project.thumbnailUrl || project.imageUrl || project.image || ''
-  const carouselImages = Array.isArray(project.carousel_images_url)
+  const rawCarousel = Array.isArray(project.carousel_images_url)
     ? project.carousel_images_url
     : Array.isArray(project.carouselImages)
       ? project.carouselImages
       : []
+  const carouselImages = image ? [] : rawCarousel.filter(Boolean)
+  const screenshots = Array.isArray(project.screenshots)
+    ? project.screenshots.filter(Boolean)
+    : Array.isArray(meta.screenshots)
+      ? meta.screenshots.filter(Boolean)
+      : carouselImages
   const tech = normalizeTech(Array.isArray(project.tech) ? project.tech : project.tags)
+  const metrics = Array.isArray(project.metrics)
+    ? normalizeMetrics(project.metrics)
+    : normalizeMetrics(meta.metrics)
   const github =
     project.github || urls.github || urls.repository || meta.github || meta.githubUrl || ''
   const deployed =
@@ -250,8 +278,11 @@ export function mapApiProject(project) {
     imageUrl: project.imageUrl || image,
     thumbnailUrl: project.thumbnailUrl || image,
     carouselImages,
+    screenshots,
     tech,
     tags: tech,
+    metrics,
+    previewType: project.previewType || meta.previewType || 'auto',
     github,
     deployed,
     projectUrl: project.projectUrl || project.deployed || '',
@@ -302,8 +333,13 @@ export function mapApiSocial(social) {
 export async function getFeatures() {
   try {
     const data = await fetchContent()
-    const ff = data?.feature_flags || {}
-    return { flags: ff.flags || {} }
+    const raw = data?.feature_flags?.flags || {}
+    const flags = {}
+    for (const [key, value] of Object.entries(raw)) {
+      flags[key] =
+        typeof value === 'object' && value !== null ? value.enabled === true : Boolean(value)
+    }
+    return { flags }
   } catch {
     return { flags: {} }
   }
@@ -462,9 +498,250 @@ export function getContactEndpoint() {
   return `${API_BASE}/api/contact`
 }
 
-/** API key used to authenticate third-party platform API calls (GitHub, LeetCode, etc.). */
+/** AMA (Ask Me Anything) endpoints — see src/resources/README.md */
+export function getAskEndpoint() {
+  return `${API_BASE}/api/ama/ask`
+}
+
+export function getAmaQuestionEndpoint(reference) {
+  return `${API_BASE}/api/ama/questions/${encodeURIComponent(reference)}`
+}
+
+export function getAmaHealthEndpoint() {
+  return `${API_BASE}/api/ama/health`
+}
+
+/**
+ * AMA error: carries the user-facing `code` from the backend alongside the
+ * HTTP `status`. Never surfaces raw technical details to the UI — the `code`
+ * strings from the AMA API are already human-friendly.
+ */
+class AmaError extends Error {
+  constructor(message, status, code) {
+    super(message)
+    this.name = 'AmaError'
+    this.status = status
+    this.code = code
+  }
+}
+
+function parseAmaError(response) {
+  return response.json().catch(() => ({ error: 'Something went wrong' })).then((data) => {
+    const message = data?.error || 'Something went wrong'
+    return new AmaError(message, response.status, message)
+  })
+}
+
+/** POST /api/ama/ask — submit a question. Throws AmaError on non-2xx. */
+export async function postQuestion(question, options = {}) {
+  const body = { question: (question || '').trim().slice(0, 1000) }
+  if (options.askerName) body.askerName = options.askerName.trim().slice(0, 120)
+  if (options.askerEmail) body.askerEmail = options.askerEmail.trim()
+  if (options.category) body.category = options.category.trim()
+  if (options.mode) body.mode = options.mode
+
+  const response = await fetch(getAskEndpoint(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw await parseAmaError(response)
+  }
+  return response.json()
+}
+
+/** GET /api/ama/questions/{reference} — fetch a question's current state. */
+export async function getQuestion(reference) {
+  const response = await fetch(getAmaQuestionEndpoint(reference), { method: 'GET' })
+  if (!response.ok) {
+    throw await parseAmaError(response)
+  }
+  return response.json()
+}
+
+/**
+ * Poll GET /api/ama/questions/{reference} until the question is PUBLISHED
+ * (answer available), REJECTED, or maxAttempts is reached.
+ */
+export async function pollQuestion(reference, { interval = 3000, maxAttempts = 20 } = {}) {
+  let latest = await getQuestion(reference)
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (latest.status === 'PUBLISHED' && latest.answer) return latest
+    if (latest.status === 'REJECTED') return latest
+    await new Promise((resolve) => setTimeout(resolve, interval))
+    latest = await getQuestion(reference)
+  }
+  return latest
+}
+
+/**
+ * GET /api/ama/health — check whether AI providers are available.
+ * Non-blocking: returns `{ providers, available }` even on failure so the
+ * widget can degrade gracefully (e.g. queue questions for manual review).
+ */
+export async function getAmaHealth() {
+  try {
+    const response = await fetch(getAmaHealthEndpoint(), { method: 'GET' })
+    if (!response.ok) return { providers: [], available: false }
+    const data = await response.json()
+    const providers = data?.providers || []
+    return { providers, available: providers.some((p) => p.available) }
+  } catch {
+    return { providers: [], available: false }
+  }
+}
 export function getPlatformApiKey() {
   return import.meta.env.VITE_PLATFORM_API_KEY || ''
+}
+
+/**
+ * Fetch coding profile stats from the single backend endpoint
+ * ({API_BASE}/api/coding-profiles). Returns normalized { github, leetcode }.
+ */
+export async function getCodingProfiles() {
+  const data = await fetchJson(`${API_BASE}/api/coding-profiles`)
+  const github = data?.github || {}
+  const leetcode = data?.leetcode || {}
+  const difficulty = leetcode.solvedByDifficulty || {}
+  return {
+    github: {
+      login: github.login || '',
+      name: github.name || '',
+      avatarUrl: github.avatarUrl || '',
+      htmlUrl: github.htmlUrl || '',
+      bio: github.bio || '',
+      location: github.location || '',
+      company: github.company || '',
+      blog: github.blog || '',
+      twitterUsername: github.twitterUsername || '',
+      publicRepos: github.publicRepos || 0,
+      followers: github.followers || 0,
+      following: github.following || 0,
+      createdAt: github.createdAt || '',
+    },
+    leetcode: {
+      username: leetcode.username || '',
+      ranking: leetcode.ranking || 0,
+      reputation: leetcode.reputation || 0,
+      contributionPoints: leetcode.contributionPoints || 0,
+      totalSolved: leetcode.totalSolved || 0,
+      totalQuestions: leetcode.totalQuestions || 0,
+      easy: difficulty.easy || 0,
+      medium: difficulty.medium || 0,
+      hard: difficulty.hard || 0,
+      acceptedSubmissions: leetcode.acceptedSubmissions || 0,
+      totalSubmissions: leetcode.totalSubmissions || 0,
+      activeDays: leetcode.activeDays || 0,
+      lastActiveAt: leetcode.lastActiveAt || '',
+    },
+  }
+}
+
+/**
+ * Map a backend visitor star (public API schema) → UI star shape.
+ * `identity` is the star identity id (resolved against the local catalog);
+ * positions are derived client-side from `id`. `color` falls back to warm white.
+ */
+export function mapApiStar(raw = {}) {
+  return {
+    id: raw.id ?? raw.star_id ?? '',
+    identity: raw.identity ?? raw.identity_id ?? raw.name ?? '',
+    color: raw.color || '#fff8e1',
+    addedAt: raw.added_at || raw.addedAt || raw.created_at || raw.createdAt || '',
+  }
+}
+
+let starsCachePromise = null
+
+/**
+ * All discovered stars (GET {API_BASE}/api/stars). Non-blocking — the
+ * Become a Star section degrades gracefully instead of gating the site.
+ */
+export async function getStars() {
+  if (starsCachePromise) return starsCachePromise
+  starsCachePromise = fetchJson(`${API_BASE}/api/stars`)
+    .then((data) => {
+      const stars = (data?.stars || []).map(mapApiStar)
+      const meta = data?.meta || {}
+      return {
+        stars,
+        totalStars: Number(meta.total_stars ?? meta.totalStars ?? stars.length) || 0,
+        visitorHasStar: Boolean(meta.visitor_has_star ?? meta.visitorHasStar),
+        visitorStar: meta.visitor_star ? mapApiStar(meta.visitor_star) : null,
+        source: 'api',
+      }
+    })
+    .catch((err) => {
+      starsCachePromise = null
+      console.warn('[stars] Could not load the constellation:', err)
+      throw err
+    })
+  return starsCachePromise
+}
+
+/** Join the constellation (POST {API_BASE}/api/stars). Throws on failure. */
+export async function addStar(payload = {}) {
+  const body = {
+    identity: (payload.identity || '').trim(),
+    color: payload.color || '#fff8e1',
+  }
+  const response = await fetch(`${API_BASE}/api/stars`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (response.status === 409) {
+    console.warn('[stars] Visitor already has a star')
+    return { conflict: true, star: null, totalStars: 0 }
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    console.warn('[stars] Star request failed:', response.status, data?.error)
+    throw new Error(`Star request failed (${response.status})`)
+  }
+  const data = await response.json().catch(() => null)
+  const star = mapApiStar(data?.star || data || {})
+  const meta = data?.meta || {}
+  return {
+    conflict: false,
+    star,
+    totalStars: Number(meta.total_stars ?? meta.totalStars ?? 0) || 0,
+  }
+}
+
+/**
+ * Recast this visitor's existing star (PATCH {API_BASE}/api/stars/me) so the
+ * same star id keeps its position but takes a new identity/color. Best-effort —
+ * returns `{ ok: false }` instead of throwing so the recast always works
+ * locally (localStorage) even when the backend endpoint is missing/unreachable.
+ */
+export async function updateStar(payload = {}) {
+  const body = {
+    identity: (payload.identity || '').trim(),
+    color: payload.color || '#fff8e1',
+  }
+  try {
+    const response = await fetch(`${API_BASE}/api/stars/me`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!response.ok) throw new Error(`Star update failed (${response.status})`)
+    const data = await response.json().catch(() => null)
+    const star = mapApiStar(data?.star || data || {})
+    const meta = data?.meta || {}
+    return {
+      ok: true,
+      star,
+      totalStars: Number(meta.total_stars ?? meta.totalStars ?? 0) || 0,
+    }
+  } catch (err) {
+    console.warn('[stars] Could not update the star on the backend:', err)
+    return { ok: false }
+  } finally {
+    starsCachePromise = null
+  }
 }
 
 export { API_BASE }

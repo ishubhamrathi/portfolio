@@ -36,7 +36,7 @@ src/
     layout/
       SiteNav.jsx          # Fixed top nav + sound mute toggle
       GlobalEffects.jsx    # Background (Silk WebGL / gradient fallback), TargetCursor, Noise overlay
-    Home/  Projects/  About/  Stats/  Blog/  Social/   # Page sections (each own folder + .module.css)
+    Home/  Projects/  About/  Stats/  BecomeAStar/  Blog/  Social/   # Page sections (each own folder + .module.css)
     Project/Project.jsx          # Project card (navigates to /projects/:id)
     Project/ProjectDetailPage.jsx # Full-screen detail route (rich description, carousel, close cross)
     <effect components>/   # Reusable animation/UI primitives (BlurText, DecryptedText, GlassSurface, Magnet, etc.)
@@ -79,7 +79,8 @@ Contact form: posts to `POST {API_BASE}/api/contact` (public) with `sender_name`
 - Component files are `.jsx` (no TypeScript). Use named `export default function ComponentName()`.
 - Relative imports stay local; cross-tree imports use the `@/` alias (e.g. `@/context/SoundProvider`).
 - Styling: prefer Tailwind utility classes + the theme tokens (`text-fg`, `text-muted`, `text-dim`, `border-border`, `bg-bg`, fonts `font-display`/`font-body`). CSS vars also exist in `:root`.
-- Dark theme only. Section ids match nav anchors: `#home`, `#projects`, `#about`, `#stats`, `#blog`, `#social`.
+- Dark theme only. Section ids match nav anchors: `#home`, `#projects`, `#about`, `#stats`, `#star`, `#blog`, `#social`.
+- **Become a Star** (`#star`) is the visitor identity machine: canvas renderer (`StarField.jsx`), 54-entry identity catalog + rarity logic in `starIdentities.js`, shared stars come from `GET {API_BASE}/api/stars` via `getStars()`/`addStar()` in `contentApi.js`. Unlike `/api/content` it is **non-gating** (section degrades gracefully offline; machine still works, join falls back to localStorage). Backend contract: `src/resources/STARS_API.md`. Renders unless `feature_flags.light === false`.
 - Interactive elements that should show the custom target cursor get the class `cursor-target`.
 - Sound: use the `useSound()` hook (`playClick`, `playHover`, `playNav`, `playSuccess`, `playSection`, `toggleMute`). Do not create new `Howl` instances outside `SoundProvider`.
 - Accessibility: `prefers-reduced-motion` is respected globally (GlobalEffects disables Silk/TargetCursor; CSS kills animations). Keep mobile (<768px) free of the WebGL background and custom cursor.
