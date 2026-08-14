@@ -63,7 +63,8 @@ const TargetCursor = ({
 
   const constants = useMemo(() => ({
     borderWidth: 3,
-    cornerSize: 12
+    cornerSize: 12,
+    cornerOffset: 18
   }), []);
 
   const moveCursor = useCallback((x, y) => {
@@ -180,6 +181,29 @@ const TargetCursor = ({
       if (!dotRef.current) return;
       gsap.to(dotRef.current, { scale: 1, duration: 0.3 });
       gsap.to(cursorRef.current, { scale: 1, duration: 0.2 });
+      if (activeTarget && cornersRef.current) {
+        gsap.ticker.remove(tickerFnRef.current);
+        isActiveRef.current = false;
+        targetCornerPositionsRef.current = null;
+        gsap.set(activeStrengthRef, { current: 0, overwrite: true });
+        const corners = Array.from(cornersRef.current);
+        gsap.killTweensOf(corners, 'x,y');
+        const { cornerSize } = constants;
+        const positions = [
+          { x: -cornerSize * 1.5, y: -cornerSize * 1.5 },
+          { x: cornerSize * 0.5, y: -cornerSize * 1.5 },
+          { x: cornerSize * 0.5, y: cornerSize * 0.5 },
+          { x: -cornerSize * 1.5, y: cornerSize * 0.5 }
+        ];
+        corners.forEach((corner, i) => {
+          gsap.to(corner, { x: positions[i].x, y: positions[i].y, duration: 0.15, ease: 'power2.out' });
+        });
+        if (activeTarget) {
+          activeTarget.removeEventListener('mouseleave', currentLeaveHandler);
+          currentLeaveHandler = null;
+        }
+        activeTarget = null;
+      }
     };
 
     window.addEventListener('mousedown', mouseDownHandler);
@@ -386,7 +410,7 @@ const TargetCursor = ({
   return (
     <div
       ref={cursorRef}
-      className="fixed top-0 left-0 w-0 h-0 pointer-events-none z-[9999]"
+      className="fixed top-0 left-0 w-0 h-0 pointer-events-none z-[10001]"
       style={{ willChange: 'transform' }}>
       <div
         ref={dotRef}

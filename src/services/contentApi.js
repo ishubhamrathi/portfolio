@@ -646,9 +646,13 @@ export async function getCodingProfiles() {
 export function mapApiStar(raw = {}) {
   return {
     id: raw.id ?? raw.star_id ?? '',
-    identity: raw.identity ?? raw.identity_id ?? raw.name ?? '',
+    name: raw.name ?? '',
+    identity: raw.name ?? '',
+    city: raw.city ?? '',
+    country: raw.country ?? '',
     color: raw.color || '#fff8e1',
     addedAt: raw.added_at || raw.addedAt || raw.created_at || raw.createdAt || '',
+    username: raw.username ?? '',
   }
 }
 
@@ -660,15 +664,27 @@ let starsCachePromise = null
  */
 export async function getStars() {
   if (starsCachePromise) return starsCachePromise
-  starsCachePromise = fetchJson(`${API_BASE}/api/stars`)
+  const apiKey = getPlatformApiKey()
+  const headers = {}
+  if (apiKey) headers['X-API-Key'] = apiKey
+  starsCachePromise = fetch(`${API_BASE}/api/stars`, {
+    method: 'GET',
+    credentials: 'include',
+    headers,
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error(`Stars request failed (${res.status})`)
+      return res.json()
+    })
     .then((data) => {
       const stars = (data?.stars || []).map(mapApiStar)
       const meta = data?.meta || {}
       return {
         stars,
         totalStars: Number(meta.total_stars ?? meta.totalStars ?? stars.length) || 0,
+        cities: Number(meta.cities ?? 0) || 0,
+        countries: Number(meta.countries ?? 0) || 0,
         visitorHasStar: Boolean(meta.visitor_has_star ?? meta.visitorHasStar),
-        visitorStar: meta.visitor_star ? mapApiStar(meta.visitor_star) : null,
         source: 'api',
       }
     })
@@ -683,12 +699,18 @@ export async function getStars() {
 /** Join the constellation (POST {API_BASE}/api/stars). Throws on failure. */
 export async function addStar(payload = {}) {
   const body = {
-    identity: (payload.identity || '').trim(),
+    name: (payload.name || payload.identity || '').trim(),
+    city: (payload.city || '').trim(),
+    country: (payload.country || '').trim(),
     color: payload.color || '#fff8e1',
   }
+  const apiKey = getPlatformApiKey()
+  const headers = { 'Content-Type': 'application/json' }
+  if (apiKey) headers['X-API-Key'] = apiKey
   const response = await fetch(`${API_BASE}/api/stars`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    headers,
     body: JSON.stringify(body),
   })
   if (response.status === 409) {
@@ -711,30 +733,33 @@ export async function addStar(payload = {}) {
 }
 
 /**
- * Recast this visitor's existing star (PATCH {API_BASE}/api/stars/me) so the
- * same star id keeps its position but takes a new identity/color. Best-effort —
+ * Update this visitor's star (PATCH {API_BASE}/api/stars). Best-effort —
  * returns `{ ok: false }` instead of throwing so the recast always works
  * locally (localStorage) even when the backend endpoint is missing/unreachable.
  */
 export async function updateStar(payload = {}) {
   const body = {
-    identity: (payload.identity || '').trim(),
+    name: (payload.name || payload.identity || '').trim(),
+    city: (payload.city || '').trim(),
+    country: (payload.country || '').trim(),
     color: payload.color || '#fff8e1',
   }
   try {
-    const response = await fetch(`${API_BASE}/api/stars/me`, {
+    const apiKey = getPlatformApiKey()
+    const headers = { 'Content-Type': 'application/json' }
+    if (apiKey) headers['X-API-Key'] = apiKey
+    const response = await fetch(`${API_BASE}/api/stars`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers,
       body: JSON.stringify(body),
     })
     if (!response.ok) throw new Error(`Star update failed (${response.status})`)
     const data = await response.json().catch(() => null)
-    const star = mapApiStar(data?.star || data || {})
-    const meta = data?.meta || {}
+    const star = mapApiStar(data || {})
     return {
       ok: true,
       star,
-      totalStars: Number(meta.total_stars ?? meta.totalStars ?? 0) || 0,
     }
   } catch (err) {
     console.warn('[stars] Could not update the star on the backend:', err)
@@ -745,3 +770,112 @@ export async function updateStar(payload = {}) {
 }
 
 export { API_BASE }
+
+const IDENTITY_STORAGE_KEY = 'sr:visitor_identity'
+
+function loadLocalIdentity() {
+  try {
+    const raw = localStorage.getItem(IDENTITY_STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function saveLocalIdentity(identity) {
+  try {
+    localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(identity))
+  } catch {}
+}
+
+/**
+ * POST /api/identity — get or create anonymous visitor identity.
+ * Uses cookie-based identity. Caches in localStorage for fast local access.
+ */
+export async function getOrCreateIdentity() {
+  const local = loadLocalIdentity()
+  if (local?.identity_id && local?.username) return local
+
+  try {
+    const response = await fetch(`${API_BASE}/api/identity`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-Project-Key': 'portfolio' },
+    })
+    if (!response.ok) throw new Error(`Identity request failed (${response.status})`)
+    const data = await response.json()
+    const identity = {
+      identity_id: data.identity_id || '',
+      username: data.username || '',
+      created_at: data.created_at || '',
+    }
+    if (identity.identity_id && identity.username) {
+      saveLocalIdentity(identity)
+    }
+    return identity
+  } catch (err) {
+    console.warn('[identity] Could not fetch identity:', err)
+    return local || { identity_id: '', username: '', created_at: '' }
+  }
+}
+
+/**
+ * GET /api/identity — retrieve existing identity (read-only).
+ */
+export async function getIdentity() {
+  try {
+    const response = await fetch(`${API_BASE}/api/identity`, {
+      credentials: 'include',
+    })
+    if (response.status === 204) return null
+    if (!response.ok) throw new Error(`Identity request failed (${response.status})`)
+    const data = await response.json()
+    const identity = {
+      identity_id: data.identity_id || '',
+      username: data.username || '',
+      created_at: data.created_at || '',
+    }
+    if (identity.identity_id && identity.username) {
+      saveLocalIdentity(identity)
+    }
+    return identity
+  } catch (err) {
+    console.warn('[identity] Could not retrieve identity:', err)
+    return loadLocalIdentity()
+  }
+}
+
+let amaSuggestionsCachePromise = null
+
+/**
+ * GET {API_BASE}/api/ama/suggestions — active suggested questions for the AMA widget.
+ * Returns empty array on failure (section degrades gracefully).
+ */
+export async function getAmaSuggestions() {
+  if (amaSuggestionsCachePromise) return amaSuggestionsCachePromise
+  amaSuggestionsCachePromise = fetch(`${API_BASE}/api/suggestions`, {
+    credentials: 'include',
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error(`AMA suggestions failed (${res.status})`)
+      return res.json()
+    })
+    .then((data) => {
+      const items = (data?.items || [])
+        .filter((s) => s.active !== false)
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+        .map((s) => ({
+          id: s.id || '',
+          question: s.question || '',
+          category: s.category || '',
+        }))
+      return items
+    })
+    .catch((err) => {
+      amaSuggestionsCachePromise = null
+      console.warn('[ama] Could not load suggestions:', err)
+      return []
+    })
+  return amaSuggestionsCachePromise
+}

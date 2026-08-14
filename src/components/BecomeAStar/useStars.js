@@ -22,9 +22,7 @@ function loadLocalStar() {
 function saveLocalStar(star) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(star))
-  } catch {
-    /* storage may be unavailable */
-  }
+  } catch {}
 }
 
 function resolveIdentity(identityId) {
@@ -41,25 +39,28 @@ function resolveIdentity(identityId) {
 }
 
 /**
- * Enrich a raw star (API or local) with catalog data:
- * { id, identity, name, title, rarity, description, color, addedAt }
+ * Enrich a raw star (API or local) with catalog data.
+ * API stars come with { id, name, city, country, color, added_at, username }.
+ * Local stars use { id, identity, color, addedAt }.
  */
 export function enrichStar(raw = {}) {
-  const identity = String(raw.identity ?? raw.id ?? '')
+  const identity = String(raw.identity ?? raw.name ?? raw.id ?? '')
   const resolved = resolveIdentity(identity)
   return {
     id: raw.id ?? '',
     identity,
-    name: resolved.name,
+    name: raw.name || resolved.name,
     title: resolved.title,
     rarity: resolved.rarity,
     description: resolved.description,
     color: raw.color || resolved.color || '#fff8e1',
-    addedAt: raw.addedAt || '',
+    addedAt: raw.addedAt || raw.added_at || '',
+    city: raw.city || '',
+    country: raw.country || '',
+    username: raw.username || '',
   }
 }
 
-/** Add a star to the rendered constellation if it isn't already there. */
 function mergeStar(list, star) {
   if (!star) return { stars: list, added: false }
   if (list.some((s) => String(s.id) === String(star.id))) {
@@ -70,19 +71,18 @@ function mergeStar(list, star) {
 
 /**
  * Constellation + visitor-star persistence.
- * - Returning visitors are recognized via localStorage first (works offline),
- *   then the backend `visitor_has_star` / `visitor_star` when reachable.
- * - A local-only star is always rendered in the wall + counted even when the
- *   backend has 0 stars (it's the visitor's own light, not in the shared sky).
- * - `join()` assigns a local identity, persists it, and best-effort registers
- *   it with the backend. Never throws for backend failures (local-only join).
- * - `recast()` re-rolls the identity on the SAME star (same id/position) and
- *   best-effort PATCHes the backend; the star is never deleted.
+ * - Backend identifies visitors via `visitor_identity` cookie (HttpOnly).
+ * - `visitor_has_star` in GET response tells us if this visitor already has a star.
+ * - `join()` sends name/color to POST /api/stars; cookie handles identity.
+ * - `recast()` re-rolls name/color via PATCH /api/stars.
+ * - localStorage is a fast cache for returning visitors (works offline).
  */
 export default function useStars() {
   const [state, setState] = useState({
     stars: [],
     totalStars: 0,
+    cities: 0,
+    countries: 0,
     status: 'loading',
     visitorStar: null,
     visitorHasStar: false,
@@ -96,16 +96,17 @@ export default function useStars() {
     getStars()
       .then((data) => {
         if (cancelled) return
-        const backendStar = data.visitorStar ? enrichStar(data.visitorStar) : null
-        const effective = backendStar || localStar
-        if (backendStar && !local) {
-          saveLocalStar({ id: backendStar.id, identity: backendStar.identity, color: backendStar.color, addedAt: backendStar.addedAt })
-        }
         const base = data.stars.map(enrichStar)
+        const visitorStar = data.visitorHasStar
+          ? base.find((s) => s.username && localStar?.username === s.username) || (localStar && base.find((s) => s.id === localStar.id)) || null
+          : null
+        const effective = visitorStar || (data.visitorHasStar ? null : localStar)
         const merged = mergeStar(base, effective)
         setState({
           stars: merged.stars,
           totalStars: data.totalStars + (merged.added ? 1 : 0),
+          cities: data.cities || 0,
+          countries: data.countries || 0,
           status: 'ready',
           visitorStar: effective,
           visitorHasStar: data.visitorHasStar || !!effective,
@@ -125,33 +126,35 @@ export default function useStars() {
           }
         })
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
-  const join = useCallback(async (identity, color) => {
+  const join = useCallback(async (name, color) => {
     const existing = loadLocalStar()
-    if (existing) {
-      return { star: enrichStar(existing), persisted: false, alreadyJoined: true }
-    }
 
     let record = null
     try {
-      const created = await addStar({ identity, color })
+      const created = await addStar({ name, color })
+      if (created.conflict && existing) {
+        return { star: enrichStar(existing), persisted: false, alreadyJoined: true }
+      }
       record = {
-        id: created.conflict ? genId() : created.star?.id || genId(),
-        identity,
+        id: created.star?.id || genId(),
+        name,
         color,
-        addedAt: created.star?.addedAt || new Date().toISOString(),
+        addedAt: created.star?.added_at || new Date().toISOString(),
+        username: created.star?.username || '',
       }
     } catch (err) {
       console.warn('[stars] Join persisted locally only:', err)
-      record = { id: genId(), identity, color, addedAt: new Date().toISOString() }
+      if (existing) {
+        return { star: enrichStar(existing), persisted: false, alreadyJoined: true }
+      }
+      record = { id: genId(), name, color, addedAt: new Date().toISOString() }
     }
 
     const enriched = enrichStar(record)
-    saveLocalStar({ id: record.id, identity: record.identity, color: record.color, addedAt: record.addedAt })
+    saveLocalStar(record)
     setState((s) => ({
       stars: [enriched, ...s.stars],
       totalStars: s.totalStars + 1,
@@ -163,22 +166,23 @@ export default function useStars() {
   }, [])
 
   const recast = useCallback(
-    async (identity, color) => {
+    async (name, color) => {
       const local = loadLocalStar()
       const current = (local && enrichStar(local)) || state.visitorStar
       const existingId = current?.id
       if (!existingId) {
-        return join(identity, color)
+        return join(name, color)
       }
 
       const updated = enrichStar({
         id: existingId,
-        identity,
+        name,
         color,
         addedAt: current.addedAt || new Date().toISOString(),
+        username: current.username || '',
       })
-      saveLocalStar({ id: updated.id, identity: updated.identity, color: updated.color, addedAt: updated.addedAt })
-      const result = await updateStar({ identity, color })
+      saveLocalStar({ id: updated.id, name, color, addedAt: updated.addedAt, username: updated.username })
+      const result = await updateStar({ name, color })
       if (!result.ok) {
         console.warn('[stars] Recast persisted locally only')
       }

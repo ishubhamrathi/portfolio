@@ -165,7 +165,7 @@ export default function StarMachine({ onJoin, joining = false, recastMode = fals
             onClick={start}
             className="cursor-target rounded-full bg-gradient-to-r from-amber-300 to-yellow-200 px-7 py-3 text-sm font-semibold text-black shadow-[0_0_36px_rgba(253,224,71,0.35)] transition-shadow hover:shadow-[0_0_52px_rgba(253,224,71,0.5)]"
           >
-            {recastMode ? 'Recast My Star' : 'Discover My Star'}
+            {recastMode ? 'Recast My Star' : 'Claim My Star'}
           </motion.button>
         )}
 

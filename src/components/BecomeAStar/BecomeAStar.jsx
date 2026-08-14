@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Star, Sparkles } from 'lucide-react'
+import { Star, Sparkles, X } from 'lucide-react'
 import AnimatedContent from '@/components/AnimatedContent'
 import DecryptedText from '@/components/DecryptedText'
 import CountUp from '@/components/CountUp'
 import StarField from './StarField'
 import StarMachine from './StarMachine'
 import useStars from './useStars'
-import { RARITIES } from './starIdentities'
 import styles from './stars.module.css'
 import { useSound } from '@/context/SoundProvider'
 
@@ -18,12 +17,11 @@ export default function BecomeAStar() {
   const [myStar, setMyStar] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [cardDismissed, setCardDismissed] = useState(false)
+  const [machineOpen, setMachineOpen] = useState(false)
+  const [cardOpen, setCardOpen] = useState(false)
   const [recasting, setRecasting] = useState(false)
   const [pulse, setPulse] = useState(null)
-  const [resetArmed, setResetArmed] = useState(false)
   const [skyHint, setSkyHint] = useState(false)
-  const resetTimerRef = useRef(null)
   const skyClicksRef = useRef(0)
   const skyLastRef = useRef(0)
   const [traveler, setTraveler] = useState(null)
@@ -71,15 +69,18 @@ export default function BecomeAStar() {
     try {
       const from = computeLaunchFrom()
       if (recasting) {
-        const res = await recast(identity.id, identity.color)
+        const res = await recast(identity.name, identity.color)
         setMyStar(res.star)
         setRecasting(false)
-        setCardDismissed(true)
+        setMachineOpen(false)
+        setCardOpen(false)
         setPulse({ id: res.star.id, at: Date.now() })
       } else {
-        const res = await join(identity.id, identity.color)
+        const res = await join(identity.name, identity.color)
         setMyStar(res.star)
         setJoined(true)
+        setMachineOpen(false)
+        setCardOpen(false)
         setTraveler({ id: res.star.id, from })
       }
       playSuccess()
@@ -91,35 +92,20 @@ export default function BecomeAStar() {
     }
   }
 
-  const handleViewMyStar = () => {
+  const handleCloseCard = () => {
     playClick()
-    setCardDismissed(true)
-    setFocusId(displayStar?.id || stars[0]?.id || null)
+    setCardOpen(false)
   }
 
-  const handleReopenCard = () => {
+  const handleOpenCard = () => {
     playClick()
-    setCardDismissed(false)
+    setCardOpen(true)
   }
 
-  const enterRecastMode = () => {
-    setRecasting(true)
-    setCardDismissed(false)
-    setFocusId(null)
+  const handleOpenMachine = () => {
+    playClick()
+    setMachineOpen(true)
     setError('')
-  }
-
-  const handleRecast = () => {
-    playClick()
-    if (!resetArmed) {
-      setResetArmed(true)
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-      resetTimerRef.current = setTimeout(() => setResetArmed(false), 3500)
-      return
-    }
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-    setResetArmed(false)
-    enterRecastMode()
   }
 
   const handleSkyClick = () => {
@@ -131,9 +117,11 @@ export default function BecomeAStar() {
       skyClicksRef.current = 0
       setSkyHint(false)
       if (hasStar && !recasting) {
-        setResetArmed(false)
         playSection()
-        enterRecastMode()
+        setRecasting(true)
+        setMachineOpen(true)
+        setCardOpen(false)
+        setError('')
       }
       return
     }
@@ -143,17 +131,15 @@ export default function BecomeAStar() {
     playClick()
   }
 
-  const rarity = displayStar ? RARITIES[displayStar.rarity] : null
-
   return (
     <section id="star" className="relative px-6 py-24 md:px-12 lg:px-20">
       <AnimatedContent distance={40}>
         <p className="mb-2 text-xs uppercase tracking-[0.35em] text-dim">Constellation</p>
         <h2 className="font-display text-4xl font-bold md:text-5xl">
-          <DecryptedText text="Become a Star" animateOn="view" />
+          <DecryptedText text="The Wall" animateOn="view" />
         </h2>
         <p className="mt-3 max-w-xl text-muted">
-          Every visitor receives a unique star and becomes part of this constellation.
+          A living constellation of every visitor. Claim your star, give it an identity, and watch it join the sky.
         </p>
       </AnimatedContent>
 
@@ -200,17 +186,26 @@ export default function BecomeAStar() {
           )}
         </AnimatePresence>
 
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4 sm:p-6">
-          <AnimatePresence mode="wait">
-            {!hasStar || recasting ? (
+        <AnimatePresence>
+          {machineOpen && (
+            <motion.div
+              key="machine-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-4 sm:p-6"
+              onClick={(e) => { e.stopPropagation(); setMachineOpen(false); setRecasting(false) }}
+            >
               <motion.div
                 key="machine"
                 ref={machineRef}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: -8 }}
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
                 transition={{ duration: 0.3 }}
                 className="pointer-events-auto w-[min(100%,440px)]"
+                onClick={(e) => e.stopPropagation()}
               >
                 <StarMachine onJoin={handleJoin} joining={submitting} recastMode={recasting} />
                 {error && (
@@ -224,90 +219,108 @@ export default function BecomeAStar() {
                   </p>
                 )}
               </motion.div>
-            ) : !cardDismissed ? (
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {cardOpen && displayStar && (
+            <motion.div
+              key="card-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-4 sm:p-6"
+              onClick={(e) => { e.stopPropagation(); handleCloseCard() }}
+            >
               <motion.div
                 key="your-star"
-                initial={{ opacity: 0, scale: 0.94, y: 10 }}
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="pointer-events-auto w-[min(100%,400px)] rounded-2xl border border-white/10 bg-[#0a0d18]/85 p-6 text-center shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="pointer-events-auto relative w-[min(100%,400px)] rounded-2xl border border-white/10 bg-[#0a0d18]/90 p-6 text-center shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+                onClick={(e) => e.stopPropagation()}
               >
-                {displayStar ? (
-                  <>
-                    <div
-                      className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full"
-                      style={{
-                        background: `${displayStar.color}18`,
-                        border: `1px solid ${displayStar.color}44`,
-                      }}
-                    >
-                      <Sparkles size={22} style={{ color: displayStar.color }} />
-                    </div>
-                    <p className="text-xs uppercase tracking-[0.35em] text-dim">Your Star</p>
-                    <p className="mt-2 font-display text-3xl font-bold text-fg">{displayStar.name}</p>
-                    <p className="font-display text-base text-muted">{displayStar.title}</p>
-                    {rarity && (
-                      <span
-                        className={styles.badge}
-                        style={{
-                          color: rarity.color,
-                          borderColor: `${rarity.color}55`,
-                          background: `${rarity.color}12`,
-                        }}
-                      >
-                        {rarity.label}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-white/[0.03]">
-                      <Star size={20} className="fill-amber-200/70 text-amber-200/80" />
-                    </div>
-                    <p className="text-xs uppercase tracking-[0.35em] text-dim">Your Star</p>
-                    <p className="mt-2 font-display text-2xl font-bold text-fg">
-                      You're part of the constellation
-                    </p>
-                  </>
-                )}
-<button
-                  type="button"
-                  onClick={handleViewMyStar}
-                  className="cursor-target mt-5 rounded-full border border-white/20 bg-white/[0.06] px-6 py-2.5 text-sm font-semibold text-fg transition-colors hover:bg-white/[0.12]"
-                >
-                  View My Star
-                </button>
                 <button
                   type="button"
-                  onClick={handleRecast}
-                  className={`cursor-target mt-3 text-[10px] uppercase tracking-[0.25em] transition-colors ${
-                    resetArmed ? 'text-amber-200' : 'text-dim/70 hover:text-fg'
-                  }`}
+                  onClick={handleCloseCard}
+                  className="cursor-target absolute right-3 top-3 rounded-full border border-white/15 bg-white/[0.06] p-1.5 text-dim transition-colors hover:bg-white/[0.12] hover:text-fg"
                 >
-                  {resetArmed ? 'Tap again to recast' : 'Recast my star'}
+                  <X size={14} />
                 </button>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-        </div>
+                <div
+                  className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full"
+                  style={{
+                    background: `${displayStar.color}18`,
+                    border: `1px solid ${displayStar.color}44`,
+                  }}
+                >
+                  <Sparkles size={22} style={{ color: displayStar.color }} />
+                </div>
+                <p className="text-xs uppercase tracking-[0.35em] text-dim">Your Star</p>
+                <p className="mt-2 font-display text-3xl font-bold text-fg">{displayStar.name}</p>
+                <p className="font-display text-base text-muted">{displayStar.title}</p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {cardDismissed && hasStar && displayStar && (
-          <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
-            <button
-              type="button"
-              onClick={handleReopenCard}
-              className="pointer-events-auto cursor-target flex items-center gap-2 rounded-full border border-white/15 bg-[#0a0d18]/85 px-4 py-2 text-xs font-semibold text-fg backdrop-blur-md transition-colors hover:bg-[#12162a]/90"
-            >
-              <Sparkles size={13} style={{ color: displayStar.color }} />
-              Your Star — {displayStar.name}
-            </button>
+        {!machineOpen && !cardOpen && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-4 sm:p-6">
+            <div className="flex flex-col items-center gap-2">
+              {!hasStar ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleOpenMachine() }}
+                  className="pointer-events-auto cursor-target flex items-center gap-2 rounded-full border border-amber-200/25 bg-[#0a0d18]/85 px-5 py-2.5 text-xs font-semibold text-amber-100/90 backdrop-blur-md transition-colors hover:bg-[#12162a]/90 hover:border-amber-200/40"
+                >
+                  <Sparkles size={13} />
+                  Claim My Star
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleOpenCard() }}
+                    className="pointer-events-auto cursor-target flex items-center gap-2 rounded-full border border-white/15 bg-[#0a0d18]/85 px-5 py-2.5 text-xs font-semibold text-fg backdrop-blur-md transition-colors hover:bg-[#12162a]/90"
+                  >
+                    <Sparkles size={13} style={{ color: displayStar?.color }} />
+                    {displayStar?.name || 'Your Star'}
+                  </button>
+                  {stars.length > 1 && (
+                    <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-[#0a0d18]/70 px-3 py-2 backdrop-blur-md max-w-lg">
+                      {stars.filter((s) => s.id !== displayStar?.id).slice(0, 12).map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            playClick()
+                            setFocusId(s.id)
+                          }}
+                          className="cursor-target flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-dim transition-colors hover:bg-white/[0.1] hover:text-fg"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />
+                          {s.name}
+                        </button>
+                      ))}
+                      {stars.filter((s) => s.id !== displayStar?.id).length > 12 && (
+                        <span className="text-[10px] text-dim/60">+{stars.filter((s) => s.id !== displayStar?.id).length - 12}</span>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
 
       <p className="mt-5 flex items-center justify-center gap-2 text-xs text-dim/80">
         <Star size={12} className="fill-amber-200/50 text-amber-200/60" />
-        One sky, many stars — yours is now among them.
+        One sky, many stars — claim yours and join the constellation.
       </p>
     </section>
   )

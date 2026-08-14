@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, useInView, useReducedMotion } from 'motion/react'
 import GlassSurface from '@/components/GlassSurface'
 import { HiPaperAirplane } from 'react-icons/hi2'
-import { getAmaHealth, pollQuestion, postQuestion } from '@/services/contentApi'
+import { getAmaHealth, getAmaSuggestions, pollQuestion, postQuestion } from '@/services/contentApi'
 import { useSound } from '@/context/SoundProvider'
 import styles from './AskMeAnything.module.css'
 
@@ -10,15 +10,6 @@ const INITIAL_MESSAGE = {
   role: 'ai',
   text: "Hi! Ask me anything about Shubham, his projects, or tech. My AI brain is being wired up right now — answers will be live soon!",
 }
-
-const SUGGESTED_QUESTIONS = [
-  'What did Shubham build at Jupiter?',
-  'Tell me about Credit Builder',
-  'What technologies does he use?',
-  'Why is he moving into AI?',
-  'What projects has Shubham built?',
-  'Show engineering achievements',
-]
 
 function AskMeAnythingLegacy() {
   const [messages, setMessages] = useState([INITIAL_MESSAGE])
@@ -140,6 +131,7 @@ function AskMeAnythingV2() {
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
   const [providersAvailable, setProvidersAvailable] = useState(true)
+  const [suggestions, setSuggestions] = useState([])
   const scrollRef = useRef(null)
   const containerRef = useRef(null)
   const { playClick, unlock } = useSound()
@@ -160,6 +152,14 @@ function AskMeAnythingV2() {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    getAmaSuggestions().then((items) => {
+      if (!cancelled) setSuggestions(items)
+    })
+    return () => { cancelled = true }
   }, [])
 
   const send = async () => {
@@ -274,21 +274,21 @@ function AskMeAnythingV2() {
           )}
         </div>
 
-        {messages.length === 0 && !thinking && (
+        {messages.length === 0 && !thinking && suggestions.length > 0 && (
           <div className="relative z-10">
             <p className="mb-2 font-display text-xs uppercase tracking-wider text-dim">
               Suggested Questions
             </p>
             <div className={styles.chips}>
-              {SUGGESTED_QUESTIONS.map((q) => (
+              {suggestions.map((s) => (
                 <button
-                  key={q}
+                  key={s.id}
                   type="button"
-                  onClick={() => setQuestion(q)}
-                  aria-label={`Ask: ${q}`}
+                  onClick={() => setQuestion(s.question)}
+                  aria-label={`Ask: ${s.question}`}
                   className="cursor-target rounded-full border border-border bg-white/[0.035] px-3.5 py-2 text-left text-xs text-muted transition-all duration-200 hover:border-border hover:bg-white/[0.08] hover:text-fg focus-visible:outline-2 focus-visible:outline-[length:2px] focus-visible:outline-offset-2 focus-visible:outline-fg"
                 >
-                  {q}
+                  {s.question}
                 </button>
               ))}
             </div>
