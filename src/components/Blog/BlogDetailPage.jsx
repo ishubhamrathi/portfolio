@@ -91,15 +91,6 @@ export default function BlogDetailPage({ slug }) {
               {post.publishedAt && <span>&#183; {formatDate(post.publishedAt)}</span>}
             </div>
 
-            {post.image && (
-              <img
-                src={post.image}
-                alt={post.title}
-                loading="lazy"
-                className="mt-8 w-full rounded-3xl object-cover grayscale"
-              />
-            )}
-
             <div
               className="blog-rich-text mt-8 text-sm leading-relaxed text-muted md:text-base"
               dangerouslySetInnerHTML={{ __html: post.content || post.excerpt || '' }}

@@ -455,30 +455,221 @@ export async function getProjectById(id) {
  */
 export function mapApiBlogPost(post) {
   const meta = post.metadata && typeof post.metadata === 'object' ? post.metadata : {}
-  const image =
-    post.image || post.coverImage || post.cover_image || meta.image || meta.coverImage || ''
+  const urls = post.urls && typeof post.urls === 'object' ? post.urls : {}
+
+  const pick = (...vals) => {
+    for (const v of vals) {
+      if (typeof v === 'string' && v.trim()) return v.trim()
+    }
+    for (const v of vals) {
+      if (v) return v
+    }
+    return ''
+  }
+
+  let rawAuthor = ''
+  if (post.author && typeof post.author === 'object') {
+    rawAuthor = post.author.name || post.author.displayName || post.author.fullName || post.author.username || ''
+  }
+  let author = pick(
+    rawAuthor,
+    post.author_name,
+    post.authorName,
+    post.author_display_name,
+    post.authorDisplayName,
+    meta.author_name,
+    meta.authorName,
+    meta.author_display_name,
+    meta.authorDisplayName,
+    typeof post.author === 'string' && !String(post.author).includes('@') ? post.author : '',
+    typeof meta.author === 'string' && !String(meta.author).includes('@') ? meta.author : '',
+    post.author,
+    meta.author,
+    post.author_email,
+    post.authorEmail,
+    meta.author_email,
+    meta.authorEmail,
+    post.created_by,
+    post.createdBy,
+    post.username,
+    meta.username
+  )
+  if (author && typeof author === 'string' && author.includes('@')) {
+    const nameFallback = pick(post.author_name, post.authorName, meta.author_name, meta.authorName, post.display_name, post.displayName, meta.display_name)
+    if (nameFallback && !nameFallback.includes('@')) {
+      author = nameFallback
+    } else {
+      const local = author.split('@')[0]
+      author = local.replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    }
+  }
+
+  const image = pick(
+    post.thumbnail,
+    post.thumbnail_url,
+    post.thumbnailUrl,
+    post.thumbnail_image_url,
+    post.thumbnailImageUrl,
+    post.thumbnailImage,
+    post.thumb,
+    urls.thumbnail,
+    urls.image,
+    urls.cover,
+    post.image,
+    post.imageUrl,
+    post.image_url,
+    post.coverImage,
+    post.cover_image,
+    post.cover_image_url,
+    post.coverImageUrl,
+    post.banner,
+    post.banner_image,
+    post.bannerImage,
+    post.featured_image,
+    post.featuredImage,
+    post.featured_image_url,
+    post.featuredImageUrl,
+    meta.image,
+    meta.coverImage,
+    meta.cover_image,
+    meta.thumbnail,
+    meta.thumbnail_url,
+    meta.image_url
+  )
+
+  const rawExcerpt = pick(
+    post.excerpt,
+    post.shortDescription,
+    post.short_description,
+    post.summary,
+    post.subtitle,
+    meta.excerpt,
+    meta.shortDescription,
+    meta.summary,
+    ''
+  )
+
+  const rawContent = pick(
+    post.content,
+    post.content_html,
+    post.contentHtml,
+    post.content_markdown,
+    post.contentMarkdown,
+    post.body,
+    post.body_html,
+    post.bodyHtml,
+    post.body_markdown,
+    post.bodyMarkdown,
+    post.html,
+    post.markdown,
+    post.text,
+    post.blog_content,
+    post.blogContent,
+    meta.content,
+    meta.content_html,
+    meta.body,
+    meta.html,
+    meta.description,
+    ''
+  )
+
+  const stripHtml = (html) =>
+    (html || '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;|&#160;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const isHtmlEmpty = (html) => !stripHtml(html)
+
+  let excerpt = rawExcerpt
+  let content = rawContent || (!isHtmlEmpty(rawExcerpt) ? rawExcerpt : '')
+
+  if (isHtmlEmpty(excerpt) && !isHtmlEmpty(content)) {
+    excerpt = `${stripHtml(content).slice(0, 180).trim()}${stripHtml(content).length > 180 ? '…' : ''}`
+  }
+  if (isHtmlEmpty(content) && !isHtmlEmpty(excerpt)) {
+    content = excerpt
+  }
+
+  let finalImage = image
+  if (!finalImage && content) {
+    const match = content.match(/<img[^>]+src=["']([^"']+)["']/i)
+    if (match) finalImage = match[1].replace(/&amp;/g, '&')
+  }
+
+  const publishedAt = pick(
+    post.publishedAt,
+    post.published_at,
+    post.publish_date,
+    post.publishDate,
+    post.createdAt,
+    post.created_at,
+    post.date,
+    meta.publishedAt,
+    meta.published_at,
+    ''
+  )
+  const category = pick(post.category, post.categoryLabel, post.category_label, post.blog_category, meta.category, '')
+  const readingTime = pick(post.readingTime, post.reading_time, post.read_time, meta.readingTime, meta.reading_time, '')
+
   return {
     id: post.id,
-    slug: post.slug || (post.id != null ? String(post.id) : ''),
+    slug: post.slug || post.slugValue || (post.id != null ? String(post.id) : ''),
     title: post.title || '',
-    excerpt: post.excerpt || post.shortDescription || '',
-    content: post.content || post.excerpt || '',
-    author: post.author || meta.author || '',
-    publishedAt: post.publishedAt || post.published_at || meta.publishedAt || '',
-    image,
-    category: post.category || post.categoryLabel || meta.category || '',
+    excerpt,
+    content,
+    author,
+    publishedAt,
+    image: finalImage,
+    category,
     tags: Array.isArray(post.tags)
       ? post.tags
       : Array.isArray(meta.tags)
         ? meta.tags
         : [],
-    readingTime: post.readingTime || meta.readingTime || '',
+    readingTime,
+    visibilityStatus: post.visibilityStatus || post.visibility_status || meta.visibilityStatus || '',
+    createdAt: post.createdAt || post.created_at || '',
+    updatedAt: post.updatedAt || post.updated_at || '',
   }
+}
+
+export function getBlogDetailEndpoint(id) {
+  return `${API_BASE}/api/content/blogs/${encodeURIComponent(id)}`
 }
 
 export async function getBlogPosts({ limit = 10 } = {}) {
   const data = await fetchContent()
-  const posts = (data?.blogs?.posts || []).slice(0, limit).map(mapApiBlogPost)
+  const rawPosts = (data?.blogs?.posts || []).slice(0, limit)
+  let posts = rawPosts.map(mapApiBlogPost)
+
+  const needsHydration = posts.some((p) => !p.image || !stripHtmlForCheck(p.excerpt))
+  if (needsHydration && rawPosts.length > 0 && rawPosts.length <= 12) {
+    try {
+      const hydrated = await Promise.allSettled(
+        rawPosts.map((raw) => fetchJson(getBlogDetailEndpoint(raw.id)).catch(() => null))
+      )
+      posts = posts.map((mapped, i) => {
+        const fetched = hydrated[i]?.value
+        const detailRaw = fetched?.post || fetched?.data || fetched
+        if (detailRaw && (detailRaw.id || detailRaw.content || detailRaw.thumbnail || detailRaw.thumbnailUrl)) {
+          const detailMapped = mapApiBlogPost(detailRaw)
+          return {
+            ...mapped,
+            image: mapped.image || detailMapped.image,
+            excerpt: stripHtmlForCheck(mapped.excerpt) ? mapped.excerpt : detailMapped.excerpt || mapped.excerpt,
+            content: mapped.content || detailMapped.content,
+          }
+        }
+        return mapped
+      })
+    } catch {
+      // keep list as-is
+    }
+  }
+
   return {
     title: data?.blogs?.title || 'Blog',
     posts,
@@ -487,11 +678,42 @@ export async function getBlogPosts({ limit = 10 } = {}) {
   }
 }
 
+function stripHtmlForCheck(html) {
+  const s = (html || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return s && s !== '' && s !== '<p></p>'
+}
+
 export async function getBlogPost(slug) {
-  const data = await fetchContent()
-  const posts = data?.blogs?.posts || []
-  const found = posts.find((p) => p.slug === slug || String(p.id) === String(slug))
-  return found ? mapApiBlogPost(found) : null
+  const id = String(slug)
+  try {
+    const data = await fetchJson(getBlogDetailEndpoint(id))
+    const raw = data?.post || data?.data || data
+    if (raw && (raw.id || raw.title || raw.content)) {
+      return mapApiBlogPost(raw)
+    }
+  } catch (err) {
+    console.warn('[blog] detail endpoint failed, falling back to cached list', err)
+  }
+
+  const cached = await fetchContent()
+  const posts = cached?.blogs?.posts || []
+  let found = posts.find((p) => p.slug === slug || String(p.id) === String(slug))
+  if (found) {
+    try {
+      const detail = await fetchJson(getBlogDetailEndpoint(found.id))
+      const raw = detail?.post || detail?.data || detail
+      if (raw && (raw.content || raw.thumbnail || raw.thumbnailUrl)) {
+        return mapApiBlogPost({ ...found, ...raw })
+      }
+    } catch {
+      // ignore
+    }
+    return mapApiBlogPost(found)
+  }
+  return null
 }
 
 export function getContactEndpoint() {
