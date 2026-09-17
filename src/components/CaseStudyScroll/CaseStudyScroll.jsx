@@ -194,7 +194,8 @@ export default function CaseStudyScroll({ items = [], premium = false }) {
     try {
       playClick()
     } catch {}
-    navigate('/projects')
+    const el = document.getElementById('projects')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
   }
 
   const imageTransition = reduced

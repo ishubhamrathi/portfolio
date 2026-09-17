@@ -232,7 +232,7 @@ function AskMeAnythingV2() {
 
         <header className="relative z-10 flex items-center gap-2.5">
           <span className={styles.statusDot} aria-label="Online" role="status" />
-          <h3 className="font-display text-lg font-medium text-fg">Ask Shubham AI</h3>
+          <h3 className="font-display text-lg font-medium text-fg">Ask Shubham anything!</h3>
         </header>
 
         <p className="relative z-10 font-body text-sm text-muted">

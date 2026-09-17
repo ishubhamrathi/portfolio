@@ -16,10 +16,15 @@ export default function Projects() {
   const [data, setData] = useState({ title: 'Projects', items: [], source: 'loading' })
   const [categories, setCategories] = useState([])
   const [activeCategory, setActiveCategory] = useState('')
+  const [viewAll, setViewAll] = useState(false)
 
   useEffect(() => {
     getCategories().then(setCategories)
   }, [])
+
+  useEffect(() => {
+    setViewAll(false)
+  }, [activeCategory])
 
   useEffect(() => {
     getProjects({ categoryPath: activeCategory || undefined }).then(setData)
@@ -89,7 +94,13 @@ export default function Projects() {
           ))}
         </div>
       ) : (
-        <FeaturedShowcase items={featuredItems.slice(0, FEATURED_LIMIT)} />
+        <FeaturedShowcase
+          items={viewAll ? featuredItems : featuredItems.slice(0, FEATURED_LIMIT)}
+          totalCount={featuredItems.length}
+          isExpanded={viewAll}
+          onToggleViewAll={() => setViewAll((v) => !v)}
+          featuredLimit={FEATURED_LIMIT}
+        />
       )}
     </section>
   )

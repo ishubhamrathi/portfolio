@@ -208,7 +208,7 @@ function MobileFeaturedCard({ item, onOpen }) {
   )
 }
 
-export default function FeaturedShowcase({ items = [] }) {
+export default function FeaturedShowcase({ items = [], totalCount = 0, isExpanded = false, onToggleViewAll, featuredLimit = 3 }) {
   const navigate = useNavigate()
   const { playClick } = useSound()
   const reduced = useReducedMotion()
@@ -219,6 +219,10 @@ export default function FeaturedShowcase({ items = [] }) {
     try { playClick() } catch {}
     navigate(item.url, { state: { project: item.raw } })
   }, [navigate, playClick])
+
+  useEffect(() => {
+    if (activeProjectIdx >= items.length) setActiveProjectIdx(0)
+  }, [items.length, activeProjectIdx])
 
   useEffect(() => {
     if (!items.length) return
@@ -261,10 +265,10 @@ export default function FeaturedShowcase({ items = [] }) {
     }
   }, [reduced])
 
-  const goToProjectsPage = useCallback(() => {
+  const handleToggleViewAll = useCallback(() => {
     try { playClick() } catch {}
-    navigate('/projects')
-  }, [navigate, playClick])
+    if (onToggleViewAll) onToggleViewAll()
+  }, [playClick, onToggleViewAll])
 
   const activeItem = items[activeProjectIdx]
 
@@ -345,20 +349,22 @@ export default function FeaturedShowcase({ items = [] }) {
       </div>
 
       {/* View All Projects */}
-      <div className="featured-showcase-view-all mx-auto max-w-7xl px-8 py-16 text-center">
-        <div className="flex items-center justify-center gap-6">
-          <div className="h-px flex-1 bg-border" />
-          <button
-            type="button"
-            onClick={goToProjectsPage}
-            className="group cursor-target inline-flex items-center gap-3 rounded-full border border-fg/30 px-8 py-4 text-sm font-medium text-fg transition-all hover:border-fg/60 hover:bg-fg hover:text-bg"
-          >
-            View All Projects
-            <HiArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </button>
-          <div className="h-px flex-1 bg-border" />
+      {totalCount > featuredLimit && (
+        <div className="featured-showcase-view-all mx-auto max-w-7xl px-8 py-16 text-center">
+          <div className="flex items-center justify-center gap-6">
+            <div className="h-px flex-1 bg-border" />
+            <button
+              type="button"
+              onClick={handleToggleViewAll}
+              className="group cursor-target inline-flex items-center gap-3 rounded-full border border-fg/30 px-8 py-4 text-sm font-medium text-fg transition-all hover:border-fg/60 hover:bg-fg hover:text-bg"
+            >
+              {isExpanded ? 'Show less' : `View All Projects (${totalCount})`}
+              <HiArrowRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : 'group-hover:translate-x-1'}`} />
+            </button>
+            <div className="h-px flex-1 bg-border" />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
