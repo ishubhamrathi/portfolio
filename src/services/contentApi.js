@@ -303,7 +303,7 @@ export function mapApiProject(project) {
   }
 }
 
-function extractSocialList(raw) {
+export function extractSocialList(raw) {
   if (Array.isArray(raw)) return raw
   if (Array.isArray(raw?.socials)) return raw.socials
   if (Array.isArray(raw?.items)) return raw.items

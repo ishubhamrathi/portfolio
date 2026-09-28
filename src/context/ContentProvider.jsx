@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useMemo } from 'react'
-import { fetchContent, mapApiSocial, getAmaSuggestions } from '@/services/contentApi'
+import { fetchContent, mapApiSocial, extractSocialList, getAmaSuggestions } from '@/services/contentApi'
 
 const ContentContext = createContext(null)
 
@@ -145,8 +145,9 @@ export function ContentProvider({ children }) {
 
   const social = useMemo(() => {
     const rawSocials = content?.socials
-    if (!Array.isArray(rawSocials)) return null
-    const links = rawSocials
+    const list = extractSocialList(rawSocials)
+    if (!list.length) return null
+    const links = list
       .map(mapApiSocial)
       .filter((s) => s.name && s.link)
       .sort((a, b) => a.displayOrder - b.displayOrder)
