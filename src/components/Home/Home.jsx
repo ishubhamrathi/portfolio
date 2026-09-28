@@ -4,23 +4,18 @@ import TextType from '@/components/TextType'
 import BlurText from '@/components/BlurText'
 import Magnet from '@/components/Magnet'
 import SpecularButton from '@/components/SpecularButton'
-import { getContactEndpoint, getHome } from '@/services/contentApi'
+import { getContactEndpoint } from '@/services/contentApi'
 import { useSound } from '@/context/SoundProvider'
 import AskMeAnything from '@/components/AskMeAnything/AskMeAnything'
 
 const MessageEditor = lazy(() => import('@/components/MessageEditor/MessageEditor'))
 
-export default function Home({ aiAssistantV2 = false }) {
-  const [home, setHome] = useState(null)
+export default function Home({ home, aiAssistantV2 = false }) {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState('')
   const { playClick, playSuccess, unlock } = useSound()
-
-  useEffect(() => {
-    getHome().then(setHome)
-  }, [])
 
   if (!home) {
     return (

@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { IoMdClose } from 'react-icons/io'
 import { AiFillGithub } from 'react-icons/ai'
 import { BiLinkAlt } from 'react-icons/bi'
 import TechIcon from '@/components/Project/TechIcon'
-import { getProjectById } from '@/services/contentApi'
+import { useContent } from '@/context/ContentProvider'
 import { useSound } from '@/context/SoundProvider'
+import { mapApiProject } from '@/services/contentApi'
 
 function stripHtml(html) {
   return (html || '')
@@ -18,24 +19,19 @@ export default function ProjectDetailPage({ id }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { playClick } = useSound()
-  const [project, setProject] = useState(() => {
-    const passed = location.state?.project
-    return passed && passed.id === id ? passed : null
-  })
+  const { content } = useContent()
+
+  const project = useMemo(() => {
+    if (!content?.portfolio?.projects?.items) return null
+    const found = content.portfolio.projects.items.find((p) => String(p.id) === String(id))
+    return found ? mapApiProject(found) : null
+  }, [content, id])
+
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (project) return
-    let cancelled = false
-    getProjectById(id).then((p) => {
-      if (cancelled) return
-      if (p) setProject(p)
-      else setNotFound(true)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [id, project])
+    if (!project) setNotFound(true)
+  }, [project])
 
   useEffect(() => {
     const prev = document.body.style.overflow

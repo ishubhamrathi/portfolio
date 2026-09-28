@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import DecryptedText from '@/components/DecryptedText'
 import FeaturedShowcase from '@/components/FeaturedShowcase/FeaturedShowcase'
-import { getCategories, getProjects } from '@/services/contentApi'
+import { mapApiProject } from '@/services/contentApi'
 
 const FEATURED_LIMIT = 3
 
@@ -12,42 +12,81 @@ function stripHtml(html) {
     .trim()
 }
 
-export default function Projects() {
+function getCategoriesFromContent(content) {
+  const items = content?.portfolio?.projects?.items || []
+  return [
+    ...new Set(
+      items
+        .map((p) => {
+          const raw = p.category_path || p.categoryPath || p.top_category || p.topCategory
+          if (raw && typeof raw === 'object') return raw.value
+          return raw
+        })
+        .filter(Boolean)
+    ),
+  ]
+}
+
+function getProjectsFromContent(content, categoryPath) {
+  const block = content?.portfolio?.projects || {}
+  let apiItems = (block.items || []).map(mapApiProject)
+
+  if (categoryPath) {
+    apiItems = apiItems.filter(
+      (p) => p.categoryPath === categoryPath || p.topCategory === categoryPath
+    )
+  }
+
+  return {
+    title: block.title || 'Projects',
+    items: apiItems,
+    count: apiItems.length,
+    source: 'api',
+  }
+}
+
+export default function Projects({ content }) {
   const [data, setData] = useState({ title: 'Projects', items: [], source: 'loading' })
   const [categories, setCategories] = useState([])
   const [activeCategory, setActiveCategory] = useState('')
   const [viewAll, setViewAll] = useState(false)
 
   useEffect(() => {
-    getCategories().then(setCategories)
-  }, [])
+    if (content) {
+      setCategories(getCategoriesFromContent(content))
+    }
+  }, [content])
 
   useEffect(() => {
     setViewAll(false)
   }, [activeCategory])
 
   useEffect(() => {
-    getProjects({ categoryPath: activeCategory || undefined }).then(setData)
-  }, [activeCategory])
+    if (content) {
+      setData(getProjectsFromContent(content, activeCategory || undefined))
+    }
+  }, [content, activeCategory])
 
-  const featuredItems = (data.items || []).map((project, i) => ({
-    id: project.id,
-    index: i,
-    number: String(i + 1).padStart(2, '0'),
-    title: project.title,
-    description: stripHtml(project.shortDescription || project.description),
-    category: project.topCategoryLabel || project.categoryPath || '',
-    thumbnails: (() => {
-      const thumb = project.image
-      const carousel = (project.carouselImages || project.screenshots || []).filter(Boolean)
-      return thumb ? [thumb, ...carousel] : carousel
-    })(),
-    previewType: project.previewType || 'auto',
-    tech: project.tech || [],
-    siteUrl: project.deployed || project.projectUrl || '',
-    url: `/projects/${project.id}`,
-    raw: project,
-  }))
+  const featuredItems = useMemo(() => {
+    return (data.items || []).map((project, i) => ({
+      id: project.id,
+      index: i,
+      number: String(i + 1).padStart(2, '0'),
+      title: project.title,
+      description: stripHtml(project.shortDescription || project.description),
+      category: project.topCategoryLabel || project.categoryPath || '',
+      thumbnails: (() => {
+        const thumb = project.image
+        const carousel = (project.carouselImages || project.screenshots || []).filter(Boolean)
+        return thumb ? [thumb, ...carousel] : carousel
+      })(),
+      previewType: project.previewType || 'auto',
+      tech: project.tech || [],
+      siteUrl: project.deployed || project.projectUrl || '',
+      url: `/projects/${project.id}`,
+      raw: project,
+    }))
+  }, [data.items])
 
   return (
     <section id="projects" className="relative px-6 py-24 md:px-12 lg:px-20">

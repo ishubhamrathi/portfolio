@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import GlassSurface from '@/components/GlassSurface'
 import CountUp from '@/components/CountUp'
 import AnimatedContent from '@/components/AnimatedContent'
-import { getCodingProfiles, getStatsConfig } from '@/services/contentApi'
 import { useSound } from '@/context/SoundProvider'
 
 const ICON_CDN = 'https://cdn.simpleicons.org'
@@ -61,33 +60,31 @@ function StatTile({ value, label }) {
   )
 }
 
-export default function Stats() {
+export default function Stats({ content, codingProfiles }) {
   const [config, setConfig] = useState(null)
   const [leetcodeStats, setLeetcodeStats] = useState(null)
   const [githubStats, setGithubStats] = useState(null)
-  const [linkedinStats, setLinkedinStats] = useState(null)
 
   useEffect(() => {
-    getStatsConfig().then(setConfig)
-  }, [])
+    if (content?.stats) {
+      setConfig(content.stats)
+    }
+  }, [content])
 
   useEffect(() => {
-    getCodingProfiles()
-      .then(({ github, leetcode }) => {
-        setGithubStats({
-          followers: github.followers,
-          following: github.following,
-          publicRepos: github.publicRepos,
-        })
-        setLeetcodeStats(leetcode)
+    if (codingProfiles) {
+      const { github, leetcode } = codingProfiles
+      setGithubStats({
+        followers: github.followers,
+        following: github.following,
+        publicRepos: github.publicRepos,
       })
-      .catch(() => {
-        setGithubStats(null)
-        setLeetcodeStats(null)
-      })
-
-    setLinkedinStats(null)
-  }, [])
+      setLeetcodeStats(leetcode)
+    } else {
+      setGithubStats(null)
+      setLeetcodeStats(null)
+    }
+  }, [codingProfiles])
 
   if (!config) return <section id="stats" className="px-6 py-24" />
 

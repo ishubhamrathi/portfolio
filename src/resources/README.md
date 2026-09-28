@@ -8,8 +8,10 @@ The site is **API-only** — `content.json` was removed. If `GET /api/content` f
 
 | Endpoint | Used for |
 |---|---|
-| `GET /api/content` | **Consolidated public content** — socials, portfolio projects, blog posts, feature flags in one call |
-| `GET /api/content/types` | Available content types (`["socials", "portfolio", "blogs", "feature_flags"]`) |
+| `GET /api/content` | **Consolidated public content** — socials, portfolio projects, blog posts, feature flags, books in one call |
+| `GET /api/content?type=books` | **Books** — list of active books (separate query-param endpoint; see [Books](#books-#books)) |
+| `GET /api/content?type=books&id={uuid}` | **Books** — single book detail |
+| `GET /api/content/types` | Available content types (`["socials", "portfolio", "blogs", "books", "feature_flags"]`) |
 | `GET /api/v1/widget/PFP` | Widget catalog (`metadata.catalog`) — used to resolve tech names/icons |
 | `GET /api/stars` | **Become a Star** — shared constellation wall + totals (see [`STARS_API.md`](./STARS_API.md)) |
 | `POST /api/stars` | **Become a Star** — place a machine-granted identity star (one per visitor) |
@@ -99,6 +101,7 @@ Feature flags live under `response.feature_flags.flags` (consumed by `getFeature
 | Flag | Type | Default | Consumed by | Effect |
 |---|---|---|---|---|
 | `blog` | boolean | `true` | `App.jsx`, `Home.jsx` (nav) | When `false`, the Blog section and nav item are hidden. |
+| `books` | boolean | `true` | `App.jsx` | When `false`, the Books section and nav item are hidden. |
 | `FEATURE_CASE_STUDY_SCROLL_EXPERIENCE` | boolean | `false` | `Projects.jsx` | When `true`, projects open in the full-screen case-study scroll experience. |
 | `FEATURE_AI_ASSISTANT_V2` | boolean | `false` | `AskMeAnything.jsx` | When `true`, renders the redesigned "Ask Shubham AI" assistant (glowing status dot, suggested-question chips, premium glass input, subtle grid background). When absent/false, the original "Ask Me Anything" component renders unchanged. |
 
@@ -141,6 +144,62 @@ service. All endpoints are relative to the service host (`VITE_API_BASE`). Conte
 - `503` → shown as "Answering is temporarily unavailable. Please try again later." inside the chat.
 - Network / unexpected errors → generic "Something went wrong. Please try again." inside the chat.
 - Details are logged to the console.
+
+## Books (`#books`)
+
+A 3D bookshelf powered by `@react-three/fiber` (same R3F already used by `Silk.jsx`). Books come from a dedicated endpoint — `GET /api/content?type=books` — which returns only active books (`is_active = true`), sorted by `displayOrder` ascending then title alphabetical. This is **non-gating**: if the fetch fails, `getBooks()` returns `{ items: [], count: 0, source: 'none' }` and the Books section simply does not render.
+
+### Endpoints
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/content?type=books` | GET | List all active books |
+| `/api/content?type=books&books_limit=N` | GET | List with a cap (max 100) |
+| `/api/content?type=books&id={uuid}` | GET | Single book detail |
+
+### Query params
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `type` | string | — | Must be `books` |
+| `books_limit` | integer | 50 | Max books to return (max 100) |
+| `id` | UUID | — | Book UUID (single-book endpoint only) |
+
+### Response shape → UI mapping
+
+`mapApiBook()` (`src/services/contentApi.js`) normalizes each row:
+
+| API field | UI field |
+|---|---|
+| `id` | `id` |
+| `title` | `title` |
+| `author` | `author` |
+| `description` (HTML) | `description` — rendered in the detail overlay via `dangerouslySetInnerHTML` |
+| `coverUrl` (URL) | `coverUrl` — used as the 3D texture map and the 2D `<img>` src (with `onerror` fallback to an icon placeholder) |
+| `genre` | `genre` — shown as a chip on both the spine and the detail view |
+| `googleLink` | `googleLink` — "View on Google Books" link in the detail overlay |
+| `isFeatured` | `isFeatured` — `true` books are rendered first on the 3D shelf and tagged "Featured" |
+| `key_takeaways` / `takeaways` | `keyTakeaways` (array of strings) — displayed in the details drawer |
+| `displayOrder` | `displayOrder` — ascending sort |
+| `createdAt` / `updatedAt` | passthrough (date shown on detail overlay) |
+
+### Frontend access
+
+All in `contentApi.js`:
+
+- `getBooks({ limit })` — fetches the list, sorts by `displayOrder` then title, caches per-session. Returns `{ items, count, source }`. Non-blocking: returns empty on failure.
+- `getBookById(id)` — fetches a single book via `?type=books&id={uuid}`. Falls back to the cached list if the detail endpoint fails.
+- `mapApiBook(raw)` — pure normalizer (accepts `coverUrl`/`cover_url`, `isFeatured`/`is_featured`, `displayOrder`/`display_order`).
+
+### Rendering
+
+- **Desktop / motion-enabled**: `Bookshelf3D.jsx` renders a `@react-three/fiber` `Canvas` with wood-textured shelf planks, up to 18 books as 3D boxes (cover texture on the front face, title rendered via `CanvasTexture` on the spine). Mouse drag rotates the shelf; click picks a book via raycast → navigates to `/books/:id`.
+- **Mobile / `prefers-reduced-motion`**: falls back to a 2D `SpotlightCard` grid (`BookGridCard` in `Books.jsx`) so the section still works without WebGL/cursor.
+- **Book detail**: `BookDetailPage.jsx` renders at `/books/:id` as a full-screen overlay (mirrors `ProjectDetailPage`), pulling data from `getBookById()` or `location.state.book` for instant open.
+
+### Feature flag
+
+`feature_flags.books` — consumed by `App.jsx`. When `false`, the Books section and nav item are hidden. Defaults to shown (missing flag = visible).
 
 ## Become a Star (`#star`)
 

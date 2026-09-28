@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080'
+const isDev = import.meta.env.DEV
+const API_BASE = isDev ? '' : (import.meta.env.VITE_API_BASE || 'http://localhost:8080')
 
 export class ContentUnavailableError extends Error {
   constructor(message = 'Website is under maintenance') {
@@ -19,7 +20,7 @@ async function fetchJson(url) {
 let contentCache = null
 let contentPromise = null
 
-async function fetchContent() {
+export async function fetchContent() {
   if (contentCache) return contentCache
   if (contentPromise) return contentPromise
   contentPromise = fetchJson(`${API_BASE}/api/content`)
@@ -643,32 +644,7 @@ export function getBlogDetailEndpoint(id) {
 export async function getBlogPosts({ limit = 10 } = {}) {
   const data = await fetchContent()
   const rawPosts = (data?.blogs?.posts || []).slice(0, limit)
-  let posts = rawPosts.map(mapApiBlogPost)
-
-  const needsHydration = posts.some((p) => !p.image || !stripHtmlForCheck(p.excerpt))
-  if (needsHydration && rawPosts.length > 0 && rawPosts.length <= 12) {
-    try {
-      const hydrated = await Promise.allSettled(
-        rawPosts.map((raw) => fetchJson(getBlogDetailEndpoint(raw.id)).catch(() => null))
-      )
-      posts = posts.map((mapped, i) => {
-        const fetched = hydrated[i]?.value
-        const detailRaw = fetched?.post || fetched?.data || fetched
-        if (detailRaw && (detailRaw.id || detailRaw.content || detailRaw.thumbnail || detailRaw.thumbnailUrl)) {
-          const detailMapped = mapApiBlogPost(detailRaw)
-          return {
-            ...mapped,
-            image: mapped.image || detailMapped.image,
-            excerpt: stripHtmlForCheck(mapped.excerpt) ? mapped.excerpt : detailMapped.excerpt || mapped.excerpt,
-            content: mapped.content || detailMapped.content,
-          }
-        }
-        return mapped
-      })
-    } catch {
-      // keep list as-is
-    }
-  }
+  const posts = rawPosts.map(mapApiBlogPost)
 
   return {
     title: data?.blogs?.title || 'Blog',
@@ -676,14 +652,6 @@ export async function getBlogPosts({ limit = 10 } = {}) {
     count: posts.length,
     source: 'api',
   }
-}
-
-function stripHtmlForCheck(html) {
-  const s = (html || '')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return s && s !== '' && s !== '<p></p>'
 }
 
 export async function getBlogPost(slug) {
@@ -712,6 +680,122 @@ export async function getBlogPost(slug) {
       // ignore
     }
     return mapApiBlogPost(found)
+  }
+  return null
+}
+
+export function getBooksEndpoint(limit) {
+  let url = `${API_BASE}/api/content?type=books`
+  if (limit) url += `&books_limit=${limit}`
+  return url
+}
+
+function getContentTypeEndpoint(type) {
+  return `${API_BASE}/api/content?type=${encodeURIComponent(type)}`
+}
+
+export function getBookDetailEndpoint(id) {
+  return `${API_BASE}/api/content?type=books&id=${encodeURIComponent(id)}`
+}
+
+function normalizeTakeaways(raw) {
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw
+      .split(/\r?\n|•|;/)
+      .map((s) => s.replace(/^[-*•\s]+/, '').trim())
+      .filter((s) => s.length > 0)
+  }
+  return []
+}
+
+/** Map a backend book row (public API schema) → UI book shape. */
+export function mapApiBook(book) {
+  if (!book) return null
+  const seed = String(book.id || book.title || 'book').split('').reduce((total, char) => total + char.charCodeAt(0), 0)
+  const spineColors = ['#7c2d12', '#1e3a5f', '#4c1d95', '#365314', '#713f12', '#881337']
+  return {
+    id: book.id ?? '',
+    title: book.title || '',
+    author: book.author || '',
+    description: book.description || null,
+    coverUrl: book.coverUrl || book.cover_url || '',
+    genre: book.genre || '',
+    category: book.category || book.category_label || book.genre || '',
+    spineColor: book.spineColor || book.spine_color || spineColors[seed % spineColors.length],
+    rating: Math.min(5, Math.max(0, Number(book.rating) || 0)),
+    keyTakeaways: normalizeTakeaways(book.keyTakeaways || book.key_takeaways || book.takeaways),
+    googleLink: book.googleLink || book.google_link || '',
+    isFeatured: Boolean(book.isFeatured ?? book.is_featured ?? false),
+    displayOrder: book.displayOrder ?? book.display_order ?? 0,
+    createdAt: book.createdAt || book.created_at || '',
+    updatedAt: book.updatedAt || book.updated_at || '',
+  }
+}
+
+let booksCachePromise = null
+
+export function extractBooks(data) {
+  if (Array.isArray(data?.books)) return data.books
+  if (Array.isArray(data?.books?.books)) return data.books.books
+  return null
+}
+
+function formatBooks(list, limit, source) {
+  const mapped = list.map(mapApiBook).filter(Boolean)
+  mapped.sort((a, b) => a.displayOrder - b.displayOrder || a.title.localeCompare(b.title))
+  return {
+    items: limit ? mapped.slice(0, limit) : mapped,
+    count: mapped.length,
+    source,
+  }
+}
+
+/**
+ * Fetch all books from GET {API_BASE}/api/content?type=books.
+ * Non-gating — returns an empty list on failure so the Books section
+ * can degrade gracefully instead of blocking the whole site.
+ */
+export async function getBooks({ limit } = {}) {
+  if (booksCachePromise) return booksCachePromise
+  booksCachePromise = fetchContent()
+    .then(async (content) => {
+      const list = extractBooks(content)
+      if (list) return formatBooks(list, limit, 'content')
+      const data = await fetchJson(getBooksEndpoint(limit))
+      return formatBooks(extractBooks(data) || [], limit, 'api')
+    })
+    .catch((err) => {
+      booksCachePromise = null
+      console.warn('[books] Could not load the bookshelf:', err)
+      return { items: [], count: 0, source: 'none' }
+    })
+  return booksCachePromise
+}
+
+/** Fetch a single book by id from GET {API_BASE}/api/content?type=books&id={uuid}. */
+export async function getBookById(id) {
+  if (!id) return null
+  try {
+    const list = extractBooks(await fetchContent())
+    const found = list?.find((book) => String(book.id) === String(id))
+    if (found) return mapApiBook(found)
+  } catch (err) {
+    console.warn(`[books] Could not load bookshelf content for ${id}:`, err)
+  }
+  try {
+    const data = await fetchJson(getBookDetailEndpoint(id))
+    const raw = data?.book || data
+    return mapApiBook(raw)
+  } catch (err) {
+    console.warn(`[books] Could not load book ${id}:`, err)
+  }
+  if (booksCachePromise) {
+    try {
+      const cached = await booksCachePromise
+      const found = cached?.items?.find((b) => b.id === String(id))
+      if (found) return found
+    } catch {}
   }
   return null
 }
@@ -818,11 +902,12 @@ export function getPlatformApiKey() {
 }
 
 /**
- * Fetch coding profile stats from the single backend endpoint
- * ({API_BASE}/api/coding-profiles). Returns normalized { github, leetcode }.
+ * Fetch coding profile stats from the consolidated /api/content endpoint.
+ * Returns normalized { github, leetcode }.
  */
 export async function getCodingProfiles() {
-  const data = await fetchJson(`${API_BASE}/api/coding-profiles`)
+  const content = await fetchJson(getContentTypeEndpoint('coding-profiles'))
+  const data = content?.codingProfiles || content?.coding_profiles || content?.['coding-profiles'] || content
   const github = data?.github || {}
   const leetcode = data?.leetcode || {}
   const difficulty = leetcode.solvedByDifficulty || {}
@@ -878,38 +963,36 @@ export function mapApiStar(raw = {}) {
   }
 }
 
+function formatStars(data, source) {
+  const payload = Array.isArray(data?.stars) ? data : data?.stars || data
+  const rows = Array.isArray(payload?.stars)
+    ? payload.stars
+    : Array.isArray(payload?.items)
+      ? payload.items
+      : null
+  if (!rows) throw new Error('Stars content is unavailable')
+  const meta = payload?.meta || data?.meta || {}
+  const stars = rows.map(mapApiStar)
+  return {
+    stars,
+    totalStars: Number(meta.total_stars ?? meta.totalStars ?? payload?.total_stars ?? payload?.totalStars ?? stars.length) || 0,
+    cities: Number(meta.cities ?? payload?.cities ?? 0) || 0,
+    countries: Number(meta.countries ?? payload?.countries ?? 0) || 0,
+    visitorHasStar: Boolean(meta.visitor_has_star ?? meta.visitorHasStar ?? payload?.visitor_has_star ?? payload?.visitorHasStar),
+    source,
+  }
+}
+
 let starsCachePromise = null
 
 /**
- * All discovered stars (GET {API_BASE}/api/stars). Non-blocking — the
+ * All discovered stars (GET {API_BASE}/api/content?type=stars). Non-blocking — the
  * Become a Star section degrades gracefully instead of gating the site.
  */
 export async function getStars() {
   if (starsCachePromise) return starsCachePromise
-  const apiKey = getPlatformApiKey()
-  const headers = {}
-  if (apiKey) headers['X-API-Key'] = apiKey
-  starsCachePromise = fetch(`${API_BASE}/api/stars`, {
-    method: 'GET',
-    credentials: 'include',
-    headers,
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error(`Stars request failed (${res.status})`)
-      return res.json()
-    })
-    .then((data) => {
-      const stars = (data?.stars || []).map(mapApiStar)
-      const meta = data?.meta || {}
-      return {
-        stars,
-        totalStars: Number(meta.total_stars ?? meta.totalStars ?? stars.length) || 0,
-        cities: Number(meta.cities ?? 0) || 0,
-        countries: Number(meta.countries ?? 0) || 0,
-        visitorHasStar: Boolean(meta.visitor_has_star ?? meta.visitorHasStar),
-        source: 'api',
-      }
-    })
+  starsCachePromise = fetchJson(getContentTypeEndpoint('stars'))
+    .then((data) => formatStars(data, 'content'))
     .catch((err) => {
       starsCachePromise = null
       console.warn('[stars] Could not load the constellation:', err)
@@ -1070,30 +1153,32 @@ export async function getIdentity() {
 
 let amaSuggestionsCachePromise = null
 
+function formatAmaSuggestions(data) {
+  const payload = data?.suggestions || data
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.items)
+      ? payload.items
+      : null
+  if (!list) throw new Error('Suggestions content is unavailable')
+  return list
+    .filter((suggestion) => suggestion.active !== false)
+    .sort((a, b) => (a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0))
+    .map((suggestion) => ({
+      id: suggestion.id || '',
+      question: suggestion.question || '',
+      category: suggestion.category || '',
+    }))
+}
+
 /**
  * GET {API_BASE}/api/ama/suggestions — active suggested questions for the AMA widget.
  * Returns empty array on failure (section degrades gracefully).
  */
 export async function getAmaSuggestions() {
   if (amaSuggestionsCachePromise) return amaSuggestionsCachePromise
-  amaSuggestionsCachePromise = fetch(`${API_BASE}/api/suggestions`, {
-    credentials: 'include',
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error(`AMA suggestions failed (${res.status})`)
-      return res.json()
-    })
-    .then((data) => {
-      const items = (data?.items || [])
-        .filter((s) => s.active !== false)
-        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map((s) => ({
-          id: s.id || '',
-          question: s.question || '',
-          category: s.category || '',
-        }))
-      return items
-    })
+  amaSuggestionsCachePromise = fetchJson(getContentTypeEndpoint('suggestions'))
+    .then(formatAmaSuggestions)
     .catch((err) => {
       amaSuggestionsCachePromise = null
       console.warn('[ama] Could not load suggestions:', err)

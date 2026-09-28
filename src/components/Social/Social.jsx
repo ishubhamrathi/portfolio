@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import Dock from '@/components/Dock'
 import Magnet from '@/components/Magnet'
 import DecryptedText from '@/components/DecryptedText'
-import { getSocial } from '@/services/contentApi'
 import { useSound } from '@/context/SoundProvider'
 
 const ICON_CDN = 'https://cdn.simpleicons.org'
@@ -37,13 +36,8 @@ function platformLabel(name) {
   return PLATFORM_LABELS[name] || name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
 }
 
-export default function Social() {
-  const [social, setSocial] = useState(null)
+export default function Social({ social }) {
   const { playClick } = useSound()
-
-  useEffect(() => {
-    getSocial().then(setSocial)
-  }, [])
 
   const items = useMemo(() => {
     if (!social?.links?.length) return []

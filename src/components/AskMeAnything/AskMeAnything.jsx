@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, useInView, useReducedMotion } from 'motion/react'
 import GlassSurface from '@/components/GlassSurface'
 import { HiPaperAirplane } from 'react-icons/hi2'
-import { getAmaHealth, getAmaSuggestions, pollQuestion, postQuestion } from '@/services/contentApi'
+import { pollQuestion, postQuestion } from '@/services/contentApi'
 import { useSound } from '@/context/SoundProvider'
+import { useContent } from '@/context/ContentProvider'
 import styles from './AskMeAnything.module.css'
 
 const INITIAL_MESSAGE = {
@@ -135,6 +136,7 @@ function AskMeAnythingV2() {
   const scrollRef = useRef(null)
   const containerRef = useRef(null)
   const { playClick, unlock } = useSound()
+  const { amaSuggestions, flags } = useContent()
   const inView = useInView(containerRef, { once: true, amount: 0.3 })
   const shouldReduce = useReducedMotion()
 
@@ -145,22 +147,16 @@ function AskMeAnythingV2() {
   }, [messages, thinking])
 
   useEffect(() => {
-    let cancelled = false
-    getAmaHealth().then((health) => {
-      if (!cancelled) setProvidersAvailable(health.available)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    // Use consolidated content data instead of separate API call
+    setSuggestions(amaSuggestions || [])
+  }, [amaSuggestions])
 
   useEffect(() => {
-    let cancelled = false
-    getAmaSuggestions().then((items) => {
-      if (!cancelled) setSuggestions(items)
-    })
-    return () => { cancelled = true }
-  }, [])
+    // Use consolidated content data instead of separate API call
+    // For health, we can still do a lightweight check or use a flag
+    // For now, assume available if we have the feature flag
+    setProvidersAvailable(flags?.ai_assistant !== false)
+  }, [flags])
 
   const send = async () => {
     const text = input.trim()

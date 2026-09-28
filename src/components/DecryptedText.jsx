@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
 
 export default function DecryptedText({
-  text,
+  text = '',
   speed = 50,
   maxIterations = 10,
   sequential = false,

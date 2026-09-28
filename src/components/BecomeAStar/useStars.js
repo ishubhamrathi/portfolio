@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getStars, addStar, updateStar } from '@/services/contentApi'
+import { addStar, updateStar } from '@/services/contentApi'
 import { identityById } from './starIdentities'
 
 const STORAGE_KEY = 'sr:my-star'
@@ -38,11 +38,6 @@ function resolveIdentity(identityId) {
   return entry
 }
 
-/**
- * Enrich a raw star (API or local) with catalog data.
- * API stars come with { id, name, city, country, color, added_at, username }.
- * Local stars use { id, identity, color, addedAt }.
- */
 export function enrichStar(raw = {}) {
   const identity = String(raw.identity ?? raw.name ?? raw.id ?? '')
   const resolved = resolveIdentity(identity)
@@ -69,15 +64,7 @@ function mergeStar(list, star) {
   return { stars: [star, ...list], added: true }
 }
 
-/**
- * Constellation + visitor-star persistence.
- * - Backend identifies visitors via `visitor_identity` cookie (HttpOnly).
- * - `visitor_has_star` in GET response tells us if this visitor already has a star.
- * - `join()` sends name/color to POST /api/stars; cookie handles identity.
- * - `recast()` re-rolls name/color via PATCH /api/stars.
- * - localStorage is a fast cache for returning visitors (works offline).
- */
-export default function useStars() {
+export default function useStars({ starsData, amaSuggestions }) {
   const [state, setState] = useState({
     stars: [],
     totalStars: 0,
@@ -93,41 +80,39 @@ export default function useStars() {
     const local = loadLocalStar()
     const localStar = local ? enrichStar(local) : null
 
-    getStars()
-      .then((data) => {
-        if (cancelled) return
-        const base = data.stars.map(enrichStar)
-        const visitorStar = data.visitorHasStar
-          ? base.find((s) => s.username && localStar?.username === s.username) || (localStar && base.find((s) => s.id === localStar.id)) || null
-          : null
-        const effective = visitorStar || (data.visitorHasStar ? null : localStar)
-        const merged = mergeStar(base, effective)
-        setState({
-          stars: merged.stars,
-          totalStars: data.totalStars + (merged.added ? 1 : 0),
-          cities: data.cities || 0,
-          countries: data.countries || 0,
-          status: 'ready',
-          visitorStar: effective,
-          visitorHasStar: data.visitorHasStar || !!effective,
-        })
+    if (starsData) {
+      if (cancelled) return
+      const base = starsData.stars.map(enrichStar)
+      const visitorStar = starsData.visitorHasStar
+        ? base.find((s) => s.username && localStar?.username === s.username) || (localStar && base.find((s) => s.id === localStar.id)) || null
+        : null
+      const effective = visitorStar || (starsData.visitorHasStar ? null : localStar)
+      const merged = mergeStar(base, effective)
+      setState({
+        stars: merged.stars,
+        totalStars: starsData.totalStars + (merged.added ? 1 : 0),
+        cities: starsData.cities || 0,
+        countries: starsData.countries || 0,
+        status: 'ready',
+        visitorStar: effective,
+        visitorHasStar: starsData.visitorHasStar || !!effective,
       })
-      .catch(() => {
-        if (cancelled) return
-        setState((s) => {
-          const merged = mergeStar(s.stars, localStar)
-          return {
-            ...s,
-            stars: merged.stars,
-            totalStars: merged.added ? Math.max(1, s.totalStars) : s.totalStars,
-            status: 'offline',
-            visitorStar: localStar,
-            visitorHasStar: !!localStar,
-          }
-        })
+    } else {
+      // No stars data from context - use local only
+      if (cancelled) return
+      const merged = mergeStar([], localStar)
+      setState({
+        stars: merged.stars,
+        totalStars: merged.added ? 1 : 0,
+        cities: 0,
+        countries: 0,
+        status: 'offline',
+        visitorStar: localStar,
+        visitorHasStar: !!localStar,
       })
+    }
     return () => { cancelled = true }
-  }, [])
+  }, [starsData])
 
   const join = useCallback(async (name, color) => {
     const existing = loadLocalStar()

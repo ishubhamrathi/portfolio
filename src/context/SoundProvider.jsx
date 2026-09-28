@@ -1,6 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Howl, Howler } from 'howler'
 
+// Increase HTML5 Audio pool to avoid exhaustion warnings - use Web Audio for everything
+Howler.html5PoolSize = 32
+Howler.autoUnlock = true
+Howler.usingWebAudio = true
+
 const SoundContext = createContext(null)
 
 function createToneDataUri(frequency, duration = 0.08, type = 'sine', volume = 0.25) {
@@ -58,11 +63,11 @@ export function SoundProvider({ children }) {
 
   useEffect(() => {
     sfxRef.current = {
-      hover: new Howl({ src: [createToneDataUri(880, 0.05, 'sine', 0.15)], volume: 0.2 }),
-      click: new Howl({ src: [createToneDataUri(520, 0.09, 'triangle', 0.28)], volume: 0.35 }),
-      nav: new Howl({ src: [createToneDataUri(360, 0.12, 'sine', 0.22)], volume: 0.3 }),
-      success: new Howl({ src: [createToneDataUri(660, 0.18, 'sine', 0.3)], volume: 0.4 }),
-      section: new Howl({ src: [createToneDataUri(240, 0.15, 'triangle', 0.2)], volume: 0.25 }),
+      hover: new Howl({ src: [createToneDataUri(880, 0.05, 'sine', 0.15)], volume: 0.2, html5: false }),
+      click: new Howl({ src: [createToneDataUri(520, 0.09, 'triangle', 0.28)], volume: 0.35, html5: false }),
+      nav: new Howl({ src: [createToneDataUri(360, 0.12, 'sine', 0.22)], volume: 0.3, html5: false }),
+      success: new Howl({ src: [createToneDataUri(660, 0.18, 'sine', 0.3)], volume: 0.4, html5: false }),
+      section: new Howl({ src: [createToneDataUri(240, 0.15, 'triangle', 0.2)], volume: 0.25, html5: false }),
     }
 
     // Prefer optional file; fall back to soft low drone data URI
@@ -70,7 +75,7 @@ export function SoundProvider({ children }) {
       src: ['/audio/ambient.mp3', createToneDataUri(110, 2.5, 'sine', 0.08)],
       loop: true,
       volume: 0.15,
-      html5: true,
+      html5: false,
     })
 
     return () => {

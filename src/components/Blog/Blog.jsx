@@ -2,23 +2,36 @@ import { useEffect, useState } from 'react'
 import FadeContent from '@/components/FadeContent'
 import ShinyText from '@/components/ShinyText'
 import BlogCard from '@/components/Blog/BlogCard'
-import { getBlogPosts } from '@/services/contentApi'
+import { mapApiBlogPost } from '@/services/contentApi'
 
 const PAGE_SIZE = 4
 
-export default function Blog() {
+function getBlogPostsFromContent(content, limit = 12) {
+  const rawPosts = (content?.blogs?.posts || []).slice(0, limit)
+  const posts = rawPosts.map(mapApiBlogPost)
+
+  return {
+    title: content?.blogs?.title || 'Blog',
+    posts,
+    count: posts.length,
+    source: 'api',
+  }
+}
+
+export default function Blog({ content }) {
   const [posts, setPosts] = useState([])
   const [source, setSource] = useState('loading')
   const [title, setTitle] = useState('Blog')
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   useEffect(() => {
-    getBlogPosts({ limit: 12 }).then((data) => {
+    if (content) {
+      const data = getBlogPostsFromContent(content, 12)
       setPosts(data.posts || [])
       setSource(data.source)
       setTitle(data.title || 'Blog')
-    })
-  }, [])
+    }
+  }, [content])
 
   if (source === 'none' && posts.length === 0) {
     return null

@@ -4,27 +4,23 @@ import AnimatedContent from '@/components/AnimatedContent'
 import TrueFocus from '@/components/TrueFocus'
 import { LogoLoop } from '@/components/LogoLoop'
 import ReflectiveCard from '@/components/ReflectiveCard'
-import { getAbout } from '@/services/contentApi'
 
-export default function About() {
-  const [about, setAbout] = useState(null)
+export default function About({ about }) {
   const [photoSrc, setPhotoSrc] = useState(null)
 
   useEffect(() => {
-    getAbout().then((data) => {
-      setAbout(data)
-      const primary = data.photo
-      const fallback = data.photoFallback
-      if (!primary) {
-        setPhotoSrc(fallback)
-        return
-      }
-      const img = new Image()
-      img.onload = () => setPhotoSrc(primary)
-      img.onerror = () => setPhotoSrc(fallback)
-      img.src = primary
-    })
-  }, [])
+    if (!about) return
+    const primary = about.photo
+    const fallback = about.photoFallback
+    if (!primary) {
+      setPhotoSrc(fallback)
+      return
+    }
+    const img = new Image()
+    img.onload = () => setPhotoSrc(primary)
+    img.onerror = () => setPhotoSrc(fallback)
+    img.src = primary
+  }, [about])
 
   const skillLogos = useMemo(() => {
     if (!about?.skills?.categories) return []
@@ -53,7 +49,7 @@ export default function About() {
     <section id="about" className="relative px-6 py-24 md:px-12 lg:px-20">
       <p className="mb-2 text-xs uppercase tracking-[0.35em] text-dim">Profile</p>
       <h2 className="mb-10 font-display text-4xl font-bold md:text-5xl">
-        <ScrollReveal baseOpacity={0.1} enableBlur baseRotation={2} blurStrength={8}>
+        <ScrollReveal baseOpacity={0.1} enableBlur baseRotation={2} blurStrength={8} containerClassName="my-5" textClassName="text-[clamp(1.6rem,4vw,3rem)] leading-[1.5] font-semibold">
           {about.title}
         </ScrollReveal>
       </h2>

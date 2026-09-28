@@ -28,25 +28,18 @@ function CategoryChip({ label }) {
 function Cover({ post }) {
   const coverClasses = 'relative aspect-[16/9] overflow-hidden bg-black/50 lg:aspect-auto lg:h-full lg:min-h-[260px]'
 
-  if (post.image) {
-    return (
-      <div className={coverClasses}>
-        <img
-          src={post.image}
-          alt={post.title}
-          className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0"
-          loading="lazy"
-        />
-        {post.category && <CategoryChip label={post.category} />}
-      </div>
-    )
+  if (!post.image) {
+    return null
   }
 
-  const initial = (post.title || 'P').trim().charAt(0).toUpperCase()
   return (
-    <div className={`${coverClasses} flex items-center justify-center`}>
-      <span className="font-display text-7xl font-bold text-white/15">{initial}</span>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.08),transparent_60%)]" />
+    <div className={coverClasses}>
+      <img
+        src={post.image}
+        alt={post.title}
+        className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0"
+        loading="lazy"
+      />
       {post.category && <CategoryChip label={post.category} />}
     </div>
   )
@@ -115,7 +108,7 @@ export default function BlogCard({ post, flip = false }) {
             <Cover post={post} />
           </div>
           <div
-            className={`flex flex-col space-y-4 p-6 md:p-8 md:justify-center ${flip ? 'lg:order-1' : 'lg:order-2'}`}
+            className={`flex flex-col space-y-4 p-6 md:p-8 md:justify-center ${post.image ? (flip ? 'lg:order-1' : 'lg:order-2') : 'lg:col-span-2'}`}
           >
             <TitleWithInitial title={post.title} />
             <p className="line-clamp-3 text-sm leading-relaxed text-muted md:text-base">

@@ -10,8 +10,8 @@ import useStars from './useStars'
 import styles from './stars.module.css'
 import { useSound } from '@/context/SoundProvider'
 
-export default function BecomeAStar() {
-  const { stars, totalStars, status, visitorStar, visitorHasStar, join, recast } = useStars()
+export default function BecomeAStar({ starsData, amaSuggestions }) {
+  const { stars, totalStars, status, visitorStar, visitorHasStar, join, recast } = useStars({ starsData, amaSuggestions })
   const { playClick, playSuccess, playSection } = useSound()
   const [joined, setJoined] = useState(false)
   const [myStar, setMyStar] = useState(null)

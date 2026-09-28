@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, useLocation, matchPath } from 'react-router-dom'
 import { SoundProvider, useSound } from '@/context/SoundProvider'
+import { ContentProvider, useContent } from '@/context/ContentProvider'
 import GlobalEffects from '@/components/layout/GlobalEffects'
 import PageLoader from '@/components/layout/PageLoader'
 import MaintenanceScreen from '@/components/layout/MaintenanceScreen'
@@ -13,11 +14,12 @@ import About from '@/components/About/About'
 import Stats from '@/components/Stats/Stats'
 import BecomeAStar from '@/components/BecomeAStar/BecomeAStar'
 import Blog from '@/components/Blog/Blog'
+import Books from '@/components/Books/Books'
 import Social from '@/components/Social/Social'
 import ProjectDetailPage from '@/components/Project/ProjectDetailPage'
+import BookDetailPage from '@/components/Books/BookDetailPage'
 import BlogDetailPage from '@/components/Blog/BlogDetailPage'
-import { checkContent, getFeatures, getHome, getProjects, getSocial } from '@/services/contentApi'
-import { HiHome, HiFolder, HiUser, HiChartBar, HiStar, HiNewspaper, HiEnvelope } from 'react-icons/hi2'
+import { HiHome, HiFolder, HiUser, HiChartBar, HiStar, HiNewspaper, HiBookOpen, HiEnvelope } from 'react-icons/hi2'
 
 const navColors = {
   '#home': '#3b82f6',
@@ -26,19 +28,21 @@ const navColors = {
   '#stats': '#f59e0b',
   '#star': '#fcd34d',
   '#blog': '#ef4444',
+  '#books': '#a78bfa',
   '#social': '#06b6d4',
 }
 
 function AppShell() {
+  const { content, flags, codingProfiles, starsData, amaSuggestions, social, loading, error } = useContent()
   const [navLabels, setNavLabels] = useState(null)
-  const [flags, setFlags] = useState({})
   const [pageReady, setPageReady] = useState(false)
   const { unlock } = useSound()
 
   useEffect(() => {
-    getHome().then((home) => setNavLabels(home.nav))
-    getFeatures().then((data) => setFlags(data.flags || data || {}))
-  }, [])
+    if (content?.home) {
+      setNavLabels(content.home.nav)
+    }
+  }, [content])
 
   useEffect(() => {
     const MIN_LOAD_MS = 1200
@@ -53,15 +57,13 @@ function AppShell() {
       }, wait)
     }
 
-    getHome().then(hide)
+    if (!loading) hide()
     setTimeout(hide, MIN_LOAD_MS)
-
-    Promise.allSettled([getProjects(), getSocial(), getFeatures()])
 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [loading])
 
   useEffect(() => {
     const unlockOnce = () => unlock()
@@ -71,21 +73,38 @@ function AppShell() {
 
   const navItems = useMemo(() => {
     const labels = navLabels || {}
+    const featureFlags = flags || {}
     const items = [
       { label: labels.home || 'Home', href: '#home', icon: <HiHome className="h-5 w-5" />, color: navColors['#home'] },
       { label: labels.projects || 'Projects', href: '#projects', icon: <HiFolder className="h-5 w-5" />, color: navColors['#projects'] },
       { label: labels.about || 'About', href: '#about', icon: <HiUser className="h-5 w-5" />, color: navColors['#about'] },
       { label: 'Stats', href: '#stats', icon: <HiChartBar className="h-5 w-5" />, color: navColors['#stats'] },
     ]
-    if (flags.light !== false) {
+    if (featureFlags.light !== false) {
       items.push({ label: labels.star || 'Star', href: '#star', icon: <HiStar className="h-5 w-5" />, color: navColors['#star'] })
     }
-    if (flags.blog !== false) {
+    if (featureFlags.blog !== false) {
       items.push({ label: labels.blog || 'Blog', href: '#blog', icon: <HiNewspaper className="h-5 w-5" />, color: navColors['#blog'] })
+    }
+    if (featureFlags.books !== false) {
+      items.push({ label: 'Books', href: '#books', icon: <HiBookOpen className="h-5 w-5" />, color: navColors['#books'] })
     }
     items.push({ label: labels.contact || 'Contact', href: '#social', icon: <HiEnvelope className="h-5 w-5" />, color: navColors['#social'] })
     return items
   }, [navLabels, flags])
+
+  if (loading) {
+    return (
+      <>
+        <GlobalEffects />
+        <PageLoader done={false} />
+      </>
+    )
+  }
+
+  if (error) {
+    return <MaintenanceScreen />
+  }
 
   return (
     <>
@@ -95,13 +114,14 @@ function AppShell() {
           <GlobalEffects />
           <SiteNav items={navItems} />
           <main>
-            <Home aiAssistantV2={flags.FEATURE_AI_ASSISTANT_V2 === true} />
-            <Projects />
-            <About />
-            <Stats />
-            {flags.light !== false && <BecomeAStar />}
-            {flags.blog !== false && <Blog />}
-            <Social />
+            <Home home={content?.home} aiAssistantV2={flags?.ai_assistant_v2 !== false && flags?.FEATURE_AI_ASSISTANT_V2 !== false} />
+            <Projects content={content} />
+            <About about={content?.about} />
+            <Stats content={content} codingProfiles={codingProfiles} />
+            {flags?.light !== false && <BecomeAStar starsData={starsData} amaSuggestions={amaSuggestions} />}
+            {flags?.blog !== false && <Blog content={content} />}
+            {flags?.books !== false && <Books content={content} />}
+            <Social social={social} />
           </main>
           <footer className="border-t border-border px-6 py-8 text-center text-xs uppercase tracking-[0.25em] text-dim">
             © {new Date().getFullYear()} Shubham Rathi
@@ -115,53 +135,25 @@ function AppShell() {
 
 function AppContent() {
   const location = useLocation()
-  const [contentState, setContentState] = useState({ status: 'loading' })
-
-  useEffect(() => {
-    let cancelled = false
-    checkContent()
-      .then(() => {
-        if (!cancelled) setContentState({ status: 'ready' })
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error('[content] Website is under maintenance:', error)
-          setContentState({ status: 'error' })
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  if (contentState.status === 'loading') {
-    return (
-      <>
-        <GlobalEffects />
-        <PageLoader done={false} />
-      </>
-    )
-  }
-
-  if (contentState.status === 'error') {
-    return <MaintenanceScreen />
-  }
-
   const detailMatch = matchPath('/projects/:id', location.pathname)
+  const bookDetailMatch = matchPath('/books/:id', location.pathname)
   const blogDetailMatch = matchPath('/blogs/:slug', location.pathname)
 
   return (
-    <>
-      <AppShell />
-      {detailMatch && <ProjectDetailPage id={detailMatch.params.id} />}
-      {blogDetailMatch && <BlogDetailPage slug={blogDetailMatch.params.slug} />}
-    </>
+    <ContentProvider>
+      <>
+        <AppShell />
+        {detailMatch && <ProjectDetailPage id={detailMatch.params.id} />}
+        {bookDetailMatch && <BookDetailPage id={bookDetailMatch.params.id} />}
+        {blogDetailMatch && <BlogDetailPage slug={blogDetailMatch.params.slug} />}
+      </>
+    </ContentProvider>
   )
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <SoundProvider>
         <AppContent />
       </SoundProvider>
