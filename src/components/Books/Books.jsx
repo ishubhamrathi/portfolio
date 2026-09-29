@@ -196,7 +196,7 @@ export default function Books({ content }) {
 
   useEffect(() => {
     const mqMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const mqMobile = window.matchMedia('(max-width: 768px)')
+    const mqMobile = window.matchMedia('(max-width: 800px)')
     setReduceMotion(mqMotion.matches)
     setIsMobile(mqMobile.matches)
 
