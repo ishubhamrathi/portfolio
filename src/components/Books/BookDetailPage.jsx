@@ -5,6 +5,7 @@ import { HiBookOpen, HiArrowTopRightOnSquare } from 'react-icons/hi2'
 import { useContent } from '@/context/ContentProvider'
 import { useSound } from '@/context/SoundProvider'
 import { mapApiBook, extractBooks, getBookById } from '@/services/contentApi'
+import { getCachedImage } from '@/lib/imageCache'
 import styles from './BookDetailPage.module.css'
 
 function formatDate(dateStr) {
@@ -23,6 +24,8 @@ export default function BookDetailPage({ id }) {
   const [book, setBook] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [coverLoaded, setCoverLoaded] = useState(false)
+  const [coverError, setCoverError] = useState(false)
 
   // Initial book from consolidated content (for immediate display)
   const initialBook = useMemo(() => {
@@ -40,6 +43,8 @@ export default function BookDetailPage({ id }) {
   // Fetch full book from individual API endpoint
   useEffect(() => {
     let cancelled = false
+    setCoverError(false)
+    setCoverLoaded(!!getCachedImage(initialBook?.coverUrl))
 
     const loadFullBook = async () => {
       try {
@@ -168,19 +173,22 @@ export default function BookDetailPage({ id }) {
 
             <div className={styles.grid}>
               <div className={styles.coverWrapper}>
-                {book.coverUrl ? (
-                  <img
-                    src={book.coverUrl}
-                    alt={`${book.title} cover`}
-                    className={styles.coverImage}
-                    loading="eager"
-                    fetchPriority="high"
-                    decoding="async"
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                      e.target.parentElement.classList.add('flex', 'items-center', 'justify-center')
-                    }}
-                  />
+                {book.coverUrl && !coverError ? (
+                  <>
+                    {!coverLoaded && (
+                      <div className="shimmer absolute inset-0 h-full w-full" aria-hidden="true" />
+                    )}
+                    <img
+                      src={book.coverUrl}
+                      alt={`${book.title} cover`}
+                      className={`${styles.coverImage} ${coverLoaded ? styles.coverLoaded : ''}`}
+                      loading="eager"
+                      fetchPriority="high"
+                      decoding="async"
+                      onLoad={() => setCoverLoaded(true)}
+                      onError={() => setCoverError(true)}
+                    />
+                  </>
                 ) : (
                   <div className={styles.coverFallback}>
                     <HiBookOpen className="h-16 w-16 text-white/20" />

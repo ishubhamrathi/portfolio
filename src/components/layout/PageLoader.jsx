@@ -1,9 +1,8 @@
 import { useMemo, useState, useEffect } from 'react'
 import styles from './PageLoader.module.css'
 
-const COLS = 35
-const ROWS = 18
-const SPOTS = 7
+const DESKTOP_GRID = { cols: 35, rows: 18 }
+const MOBILE_GRID = { cols: 10, rows: 6 }
 
 const PALETTE = [
   '#0a0a0c', '#0f0f12', '#111116', '#131318',
@@ -21,24 +20,35 @@ function seededRandom(seed) {
 
 export default function PageLoader({ done = false }) {
   const [mounted, setMounted] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    setIsMobile(mq.matches)
+    const onChange = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   useEffect(() => {
     if (!done) return
-    const timer = setTimeout(() => setMounted(false), 1800)
+    const timer = setTimeout(() => setMounted(false), isMobile ? 500 : 1800)
     return () => clearTimeout(timer)
-  }, [done])
+  }, [done, isMobile])
 
   const tiles = useMemo(() => {
+    const { cols, rows } = isMobile ? MOBILE_GRID : DESKTOP_GRID
+    const spots = isMobile ? 3 : 7
     const rng = seededRandom(42)
 
-    const seeds = Array.from({ length: SPOTS }, () => ({
-      r: rng() * ROWS,
-      c: rng() * COLS,
+    const seeds = Array.from({ length: spots }, () => ({
+      r: rng() * rows,
+      c: rng() * cols,
     }))
 
-    return Array.from({ length: ROWS * COLS }, (_, i) => {
-      const r = Math.floor(i / COLS)
-      const c = i % COLS
+    return Array.from({ length: rows * cols }, (_, i) => {
+      const r = Math.floor(i / cols)
+      const c = i % cols
 
       let minDist = Infinity
       for (const s of seeds) {
@@ -57,13 +67,18 @@ export default function PageLoader({ done = false }) {
         blinkDur: 2 + rng() * 2,
       }
     })
-  }, [])
+  }, [isMobile])
 
   if (!mounted) return null
 
+  const { cols, rows } = isMobile ? MOBILE_GRID : DESKTOP_GRID
+
   return (
     <div className={`${styles.overlay} ${done ? styles.hidden : ''}`} aria-label="Loading" role="status">
-      <div className={styles.mosaic}>
+      <div
+        className={styles.mosaic}
+        style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }}
+      >
         {tiles.map((t, i) => (
           <div
             key={`${t.r}-${t.c}`}

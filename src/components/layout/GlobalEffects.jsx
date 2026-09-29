@@ -3,10 +3,13 @@ import Noise from '@/components/Noise'
 import TargetCursor from '@/components/TargetCursor'
 import FaultyTerminal from '@/components/FaultyTerminal/FaultyTerminal'
 import DotField from '@/components/DotField/DotField'
+import { startScrollGate } from '@/lib/rafGate'
 
 export default function GlobalEffects() {
   const [reduceMotion, setReduceMotion] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => startScrollGate(), [])
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -88,7 +91,7 @@ export default function GlobalEffects() {
       )}
 
       <div className="noise-overlay">
-        <Noise patternAlpha={18} patternRefreshInterval={3} />
+        <Noise patternAlpha={18} canvasSize={isMobile ? 128 : 256} />
       </div>
     </>
   )

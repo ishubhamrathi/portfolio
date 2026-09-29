@@ -157,6 +157,7 @@
 }
 
 .coverImage {
+  position: relative;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -164,8 +165,7 @@
   opacity: 0;
   transition: opacity 0.3s ease;
 }
-.coverImage[style*="opacity: 1"],
-.coverImage:not([style*="opacity: 0"]) {
+.coverLoaded {
   opacity: 1;
 }
 

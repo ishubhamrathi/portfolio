@@ -16,11 +16,9 @@
 
 .mosaic {
   display: grid;
-  grid-template-columns: repeat(35, 1fr);
-  grid-template-rows: repeat(18, 1fr);
+  gap: 2px;
   width: 100vw;
   height: 100vh;
-  gap: 2px;
 }
 
 .tile {
@@ -35,7 +33,6 @@
 
 .tileFade {
   animation: tileDry 0.35s ease-out forwards;
-
 }
 
 @keyframes blink {

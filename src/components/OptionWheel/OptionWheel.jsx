@@ -18,7 +18,7 @@ const OptionWheel = ({
   spacing = 1.4,
   curve = 1,
   tilt = 6,
-  blur = 2,
+  blur = 0,
   fade = 0.25,
   minOpacity = 0.05,
   smoothing = 200,
@@ -109,7 +109,12 @@ const OptionWheel = ({
       }
       el.style.transform = `translate(${x.toFixed(2)}px, calc(${y.toFixed(2)}px - 50%)) rotate(${rot.toFixed(3)}deg)`
       el.style.opacity = String(Math.max(cfg.minOpacity, 1 - dist * cfg.fade))
-      el.style.filter = cfg.blur > 0 ? `blur(${(dist * cfg.blur).toFixed(2)}px)` : 'none'
+      if (cfg.blur > 0) {
+        const nextFilter = `blur(${(dist * cfg.blur).toFixed(2)}px)`
+        if (el.style.filter !== nextFilter) el.style.filter = nextFilter
+      } else if (el.style.filter) {
+        el.style.filter = 'none'
+      }
       el.style.setProperty('--ow-p', Math.max(0, 1 - Math.min(dist, 1)).toFixed(4))
     }
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { isAnimatable } from '@/lib/rafGate'
 import styles from './stars.module.css'
 
 const PARALLAX = 18
@@ -408,6 +409,7 @@ export default function StarField({ stars = [], focusId = null, myStarId = null,
     const loop = () => {
       raf = requestAnimationFrame(loop)
       if (!s.visible || !s.size.w) return
+      if (!isAnimatable() && !s.traveler && !s.pulse) return
       draw(s)
     }
     raf = requestAnimationFrame(loop)

@@ -5,6 +5,7 @@ import ShinyText from '@/components/ShinyText'
 import AnimatedContent from '@/components/AnimatedContent'
 import SpotlightCard from '@/components/SpotlightCard'
 import Bookshelf3D from '@/components/Books/Bookshelf3D'
+import { preloadImages, getCachedImage } from '@/lib/imageCache'
 import { mapApiBook, extractBooks } from '@/services/contentApi'
 import { useSound } from '@/context/SoundProvider'
 import {
@@ -23,23 +24,53 @@ function stripHtml(html) {
     .trim()
 }
 
-function getKeyTakeaways(book) {
-  if (Array.isArray(book.keyTakeaways) && book.keyTakeaways.length > 0) {
-    return book.keyTakeaways
-  }
-  if (book.description && book.description.includes('•')) {
-    const extracted = book.description
-      .split('•')
-      .slice(1)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-    if (extracted.length > 0) return extracted
-  }
-  return [
-    'Core mental models and frameworks for deeper systems thinking.',
-    'Actionable strategies for high-leverage focus, consistency, and execution.',
-    'Timeless principles that compound personal and technical growth.',
-  ]
+function CoverImage({ book, className = '', eager = false }) {
+  const url = book.coverUrl
+  const [status, setStatus] = useState(() =>
+    !url ? 'error' : getCachedImage(url) ? 'loaded' : 'loading'
+  )
+
+  useEffect(() => {
+    if (!url) {
+      setStatus('error')
+      return undefined
+    }
+    if (getCachedImage(url)) {
+      setStatus('loaded')
+      return undefined
+    }
+    let active = true
+    setStatus('loading')
+    preloadImages([url]).then((img) => {
+      if (active) setStatus(img ? 'loaded' : 'error')
+    })
+    return () => { active = false }
+  }, [url])
+
+  if (!url || status === 'error') return null
+
+  return (
+    <>
+      {status !== 'loaded' && (
+        <div
+          className="shimmer absolute inset-0 h-full w-full"
+          aria-hidden="true"
+        />
+      )}
+      <img
+        src={url}
+        alt={`${book.title} cover`}
+        className={`${className} transition-opacity duration-500 ${
+          status === 'loaded' ? 'opacity-100' : 'opacity-0'
+        }`}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        fetchPriority={eager ? 'high' : 'auto'}
+        onLoad={() => setStatus('loaded')}
+        onError={() => setStatus('error')}
+      />
+    </>
+  )
 }
 
 function BookGridCard({ book, onClick }) {
@@ -68,11 +99,9 @@ function BookGridCard({ book, onClick }) {
         >
           <div className="relative aspect-[3/4] overflow-hidden bg-black/60">
             {book.coverUrl ? (
-              <img
-                src={book.coverUrl}
-                alt={`${book.title} cover`}
+              <CoverImage
+                book={book}
                 className="h-full w-full object-cover object-top transition-all duration-700 group-hover:scale-105"
-                loading="lazy"
               />
             ) : (
               <div
@@ -142,55 +171,6 @@ function BookGridCard({ book, onClick }) {
   )
 }
 
-function BookshelfFallback({ books, onClick }) {
-  const { playHover } = useSound()
-  const shelves = books.reduce((rows, book, index) => {
-    const rowIndex = Math.floor(index / 6)
-    if (!rows[rowIndex]) rows[rowIndex] = []
-    rows[rowIndex].push(book)
-    return rows
-  }, [])
-
-  return (
-    <div className="overflow-x-auto pb-4" style={{ perspective: '1200px' }}>
-      <div className="min-w-max space-y-1 rounded-[1.75rem] border border-amber-950/60 bg-gradient-to-br from-[#160d08]/95 via-[#27150b]/95 to-[#100906]/95 p-4 shadow-[0_28px_70px_rgba(0,0,0,0.5)] sm:p-6">
-        {shelves.map((shelf, shelfIndex) => (
-          <div key={shelfIndex} className="relative flex min-h-60 items-end gap-1.5 px-3 pb-3 pt-5 sm:gap-2 sm:px-5">
-            {shelf.map((book, bookIndex) => {
-              const angle = ((bookIndex + shelfIndex * 2) % 3 - 1) * 1.5
-              return (
-                <button
-                  key={book.id}
-                  type="button"
-                  aria-label={`Read more about ${book.title}`}
-                  className="cursor-target group relative h-48 w-20 shrink-0 origin-bottom transition duration-300 hover:z-10 hover:-translate-y-3 hover:scale-105 sm:h-56 sm:w-24"
-                  style={{ transform: `rotate(${angle}deg)` }}
-                  onClick={() => onClick(book)}
-                  onMouseEnter={playHover}
-                >
-                  <span className="absolute inset-0 overflow-hidden rounded-t-sm border border-white/20 bg-slate-800 shadow-[4px_5px_0_rgba(0,0,0,0.35)]">
-                    {book.coverUrl ? (
-                      <img src={book.coverUrl} alt={`${book.title} cover`} className="h-full w-full object-cover" loading="lazy" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-violet-700 to-slate-950 px-2 text-center font-display text-xs font-bold text-white">
-                        {book.title}
-                      </span>
-                    )}
-                    <span className="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-2 text-center text-[10px] font-semibold leading-tight text-white opacity-0 transition group-hover:opacity-100">
-                      {book.title}
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
-            <div className="absolute inset-x-0 bottom-0 h-4 rounded-sm border-y border-amber-100/15 bg-gradient-to-b from-[#8c5428] via-[#4e2a12] to-[#1d0e06] shadow-[0_6px_10px_rgba(0,0,0,0.55)]" />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function getBooksFromContent(content, limit = 50) {
   const list = extractBooks(content)
   if (!list) return { items: [], count: 0, source: 'none' }
@@ -247,21 +227,10 @@ export default function Books({ content }) {
     }
   }, [content])
 
-  // Preload book cover images for faster modal opening
+  // Warm the shared cover cache so 2D grid, 3D shelf and detail views all reuse it
   useEffect(() => {
     if (books.length === 0) return
-    const urls = books
-      .filter((b) => b.coverUrl)
-      .map((b) => b.coverUrl)
-    const images = urls.map((url) => {
-      const img = new Image()
-      img.src = url
-      img.decoding = 'async'
-      return img
-    })
-    return () => {
-      // Allow images to be garbage collected
-    }
+    preloadImages(books.map((b) => b.coverUrl))
   }, [books])
 
   const inspectBook = (book) => {
@@ -351,14 +320,12 @@ export default function Books({ content }) {
                 isMobile={isMobile}
               />
             </div>
-          ) : viewMode === 'grid' ? (
+          ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {books.map((book) => (
                 <BookGridCard key={book.id} book={book} onClick={inspectBook} />
               ))}
             </div>
-          ) : (
-            <BookshelfFallback books={books} onClick={inspectBook} />
           )}
 
           {books.length > 7 && (

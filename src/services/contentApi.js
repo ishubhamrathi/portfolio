@@ -729,7 +729,6 @@ export function mapApiBook(book) {
     isFeatured: Boolean(book.isFeatured ?? book.is_featured ?? false),
     displayOrder: book.displayOrder ?? book.display_order ?? 0,
     createdAt: book.createdAt || book.created_at || '',
-    updatedAt: book.updatedAt || book.updated_at || '',
   }
 }
 

@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
+import { isAnimatable } from '@/lib/rafGate';
 
 const ClickSpark = ({
   sparkColor = '#fff',
@@ -13,18 +14,27 @@ const ClickSpark = ({
   const canvasRef = useRef(null);
   const sparksRef = useRef([]);
   const startTimeRef = useRef(null);
+  const runningRef = useRef(false);
+  const startLoopRef = useRef(null);
+  const reducedMotion = useRef(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = e => { reducedMotion.current = e.matches; };
+    reducedMotion.current = mq.matches;
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const parent = canvas.parentElement;
-    if (!parent) return;
-
     let resizeTimeout;
 
     const resizeCanvas = () => {
-      const { width, height } = parent.getBoundingClientRect();
+      const width = window.innerWidth;
+      const height = window.innerHeight;
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
         canvas.height = height;
@@ -33,16 +43,16 @@ const ClickSpark = ({
 
     const handleResize = () => {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(resizeCanvas, 100);
+      resizeTimeout = setTimeout(resizeCanvas, 150);
     };
 
-    const ro = new ResizeObserver(handleResize);
-    ro.observe(parent);
-
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleResize, { passive: true });
     resizeCanvas();
 
     return () => {
-      ro.disconnect();
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
       clearTimeout(resizeTimeout);
     };
   }, []);
@@ -64,15 +74,15 @@ const ClickSpark = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    let animationId;
+    let animationId = 0;
 
     const draw = timestamp => {
       if (!startTimeRef.current) {
         startTimeRef.current = timestamp;
       }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       sparksRef.current = sparksRef.current.filter(spark => {
         const elapsed = timestamp - spark.startTime;
         if (elapsed >= duration) {
@@ -100,19 +110,36 @@ const ClickSpark = ({
         return true;
       });
 
+      if (sparksRef.current.length) {
+        animationId = requestAnimationFrame(draw);
+      } else {
+        startTimeRef.current = null;
+        animationId = 0;
+        runningRef.current = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    };
+
+    runningRef.current = true;
+    animationId = requestAnimationFrame(draw);
+
+    startLoopRef.current = () => {
+      if (animationId) return;
       animationId = requestAnimationFrame(draw);
     };
 
-    animationId = requestAnimationFrame(draw);
-
     return () => {
       cancelAnimationFrame(animationId);
+      animationId = 0;
+      runningRef.current = false;
+      startLoopRef.current = null;
     };
   }, [sparkColor, sparkSize, sparkRadius, sparkCount, duration, easeFunc, extraScale]);
 
   const handleClick = e => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || reducedMotion.current) return;
+    if (!isAnimatable()) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -126,13 +153,19 @@ const ClickSpark = ({
     }));
 
     sparksRef.current.push(...newSparks);
+
+    if (!runningRef.current) {
+      runningRef.current = true;
+      startTimeRef.current = 0;
+      startLoopRef.current?.();
+    }
   };
 
   return (
     <div className="relative w-full h-full" onClick={handleClick}>
       <canvas
         ref={canvasRef}
-        className="w-full h-full block absolute top-0 left-0 select-none pointer-events-none" />
+        className="fixed inset-0 block h-full w-full select-none pointer-events-none" />
       {children}
     </div>
   );

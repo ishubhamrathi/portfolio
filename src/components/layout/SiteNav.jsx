@@ -10,7 +10,11 @@ export default function SiteNav({ items }) {
   const [activeHref, setActiveHref] = useState('#home')
 
   useEffect(() => {
-    const onScroll = () => {
+    let ticking = false
+    let active = '#home'
+
+    const measure = () => {
+      ticking = false
       const sections = items.map((i) => i.href.replace('#', '')).filter(Boolean)
       let current = '#home'
       for (const id of sections) {
@@ -18,10 +22,20 @@ export default function SiteNav({ items }) {
         if (!el) continue
         if (el.getBoundingClientRect().top <= 120) current = `#${id}`
       }
-      setActiveHref(current)
+      if (current !== active) {
+        active = current
+        setActiveHref(current)
+      }
     }
+
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(measure)
+    }
+
     window.addEventListener('scroll', onScroll, { passive: true })
-    onScroll()
+    measure()
     return () => window.removeEventListener('scroll', onScroll)
   }, [items])
 
@@ -73,7 +87,6 @@ export default function SiteNav({ items }) {
             spacing={1.6}
             curve={0.9}
             tilt={7}
-            blur={1.5}
             fade={0.35}
             minOpacity={0.12}
             inset={70}

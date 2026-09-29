@@ -105,12 +105,12 @@ function ShelfScene({
       {/* Transparent background - no color attachment */}
 
       {/* Warm ambient base lighting */}
-      <ambientLight intensity={1.2} color="#FFF7ED" />
+      <ambientLight intensity={0.85} color="#FFF7ED" />
 
       {/* Warm directional key light from top-front-left - casts shadows */}
       <directionalLight
         position={[2, 6, 4]}
-        intensity={2.8}
+        intensity={2.4}
         color="#FFF8EE"
         castShadow
         shadow-mapSize-width={2048}
@@ -125,8 +125,11 @@ function ShelfScene({
         shadow-camera-bottom={-8}
       />
 
+      {/* Front-facing light so cover typography renders crisp and unshadowed */}
+      <directionalLight position={[0, 2, 5]} intensity={3.0} color="#FFFFFF" />
+
       {/* Soft fill light from top-right */}
-      <pointLight position={[6, 5, 6]} intensity={1.5} color="#FEF3C7" decay={1.5} distance={20} />
+      <pointLight position={[6, 5, 6]} intensity={1.1} color="#FEF3C7" decay={1.5} distance={20} />
 
       {/* Subtle rim light from above/behind for cover readability */}
       <directionalLight position={[0, 6, -3]} intensity={0.6} color="#E2E8F0" />
@@ -229,10 +232,15 @@ export default function Bookshelf3D({
           near: 0.1,
           far: 100,
         }}
-        dpr={[1, 1.5]}
+        dpr={[1, 2]}
         shadows
-        alpha
-        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: false }}
+        flat
+        gl={{
+          alpha: true,
+          antialias: true,
+          preserveDrawingBuffer: false,
+          powerPreference: 'high-performance',
+        }}
         resize={{ scroll: false }}
         className="h-full w-full"
       >
