@@ -114,10 +114,15 @@ function getSharedPageBump() {
 
 // Deterministic value noise, shared by every generated map so the grain on the
 // cover, the wear on the edges and the waviness all agree with each other.
+// The hash is an integer bit-mix rather than the usual Math.sin trick: this runs
+// millions of times per book at mount, and sin() was the single most expensive
+// thing on the main thread while the shelf was coming into view.
 function valueNoise(seed) {
+  const salt = Math.imul(seed | 0, 374761393)
   const hash = (x, y) => {
-    const n = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453
-    return n - Math.floor(n)
+    let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + salt) | 0
+    h = Math.imul(h ^ (h >>> 13), 1274126177)
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296
   }
   return (x, y, freq) => {
     const fx = x * freq
@@ -193,7 +198,9 @@ function deriveBinding(book) {
 // cover is never geometrically flat.
 function makeGrainTexture(binding, seed) {
   const spec = BINDINGS[binding]
-  const size = 256
+  // Tiles with a repeat of 5-15 across a small face, so 128 is already finer
+  // than the surface can resolve. 256 doubled the per-pixel loop for no gain.
+  const size = 128
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -216,8 +223,10 @@ function makeGrainTexture(binding, seed) {
         h += (warp * 0.5 + weft * 0.5) * spec.grainStrength
       }
 
-      // Fine paper fibre / laminate tooth.
-      h += (noise(u, v, 64) * 0.55 + noise(u, v, 128) * 0.45) * spec.grainStrength * 0.6
+      // Fine paper fibre / laminate tooth. The fibre octaves are above the
+      // resolution this texture is sampled at, so they are folded into a single
+      // lookup rather than evaluated per pixel.
+      h += noise(u, v, 48) * spec.grainStrength * 0.6
 
       // Board waviness: broad, very low amplitude, so highlights bend across
       // the cover instead of reflecting as one clean sheet.
@@ -428,6 +437,7 @@ const FOIL_METALNESS = 0.8
 const FOIL_ROUGHNESS = 0.25
 const FOIL_CLEARCOAT = 0.3
 const FOIL_CLEARCOAT_ROUGHNESS = 0.1
+const MASK_MAX_WIDTH = 128
 
 // Ceiling for the clearcoatRoughness map. Values above this would be
 // unreachable through the map, so the material scalar sits here and the map
@@ -438,7 +448,10 @@ function buildFoilMasks(texture, binding, seed) {
   const source = texture?.image
   if (!source || !source.width || !source.height) return null
 
-  const w = 256
+  // Masks are sampled at the cover's own resolution, capped at MASK_MAX_WIDTH.
+  // The covers are ~128x192, so rendering them at a fixed 256 wide was pure
+  // upsampling: four times the pixels for no extra detail, on the critical path.
+  const w = Math.max(1, Math.min(MASK_MAX_WIDTH, source.width))
   const h = Math.max(1, Math.round((w * source.height) / source.width))
 
   const make = () => {
@@ -501,32 +514,40 @@ function buildFoilMasks(texture, binding, seed) {
   const spec = BINDINGS[binding]
   const noise = valueNoise((seed % 89) + 1)
 
-  // Distance to the nearest cover edge, normalised, drives the wear ring: the
-  // corners and spine edge of a handled book are rubbed smoother and lighter.
-  const edgeDistance = (px, py) => {
-    const dx = Math.min(px, 1 - px)
-    const dy = Math.min(py, 1 - py)
-    return Math.min(1, Math.min(dx * 2.6, dy * 3.4))
-  }
-
   // Cover wear is signed: a band of rubbed-smooth (lower roughness) right at the
   // edge, scuffs and dulling (higher roughness) just inside it, then the
   // per-pixel grain. This is what stops the surface reading as one clean sheet.
-  // Signed variation around the binding's base roughness. The worn band pulls
-  // down (rubbed smooth) and the scuff band pushes up, but the total excursion
-  // is clamped to the binding's own range so the finish never drifts out of
-  // spec at the corners, which are where the distance field saturates.
-  const wearVariation = (u, v) => {
-    const e = edgeDistance(u, v)
-    const rub = Math.max(0, 1 - e * 3.4) * spec.wear
-    const scuff = Math.max(0, 1 - Math.abs(e - 0.16) * 5) * spec.wear * 0.55
-    const grain = (noise(u, v, 96) - 0.5) * 0.1 + (noise(u, v, 12) - 0.5) * 0.07
-    const raw = rub * 0.3 + scuff * 0.22 + grain
-    return Math.max(-spec.roughSwing, Math.min(spec.roughSwing, raw))
+  // The total excursion is clamped to the binding's own range so the finish
+  // never drifts out of spec at the corners, where the field saturates.
+  //
+  // The whole field is evaluated once into a flat array, because both the
+  // roughness and clearcoat maps need it and recomputing the noise per channel
+  // was doubling the most expensive loop in the component.
+  const wear = new Float32Array(w * h)
+  const edge = new Float32Array(w * h)
+  for (let y = 0; y < h; y++) {
+    const dy = Math.min(y, h - 1 - y) * 3.4
+    for (let x = 0; x < w; x++) {
+      const dx = Math.min(x, w - 1 - x) * 2.6
+      const i = y * w + x
+      edge[i] = Math.min(1, Math.min(dx / w, dy / h))
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x
+      const e = edge[i]
+      const u = x / w
+      const v = y / h
+      const rub = Math.max(0, 1 - e * 3.4) * spec.wear
+      const scuff = Math.max(0, 1 - Math.abs(e - 0.16) * 5) * spec.wear * 0.55
+      const grain = (noise(u, v, 96) - 0.5) * 0.1 + (noise(u, v, 12) - 0.5) * 0.07
+      const raw = rub * 0.3 + scuff * 0.22 + grain
+      wear[i] = Math.max(-spec.roughSwing, Math.min(spec.roughSwing, raw))
+    }
   }
 
-  const px = (i) => (i % (w * 4)) / w
-  const py = (i) => Math.floor(i / (w * 4)) / h
+  const at = (i) => Math.floor(i / 4)
 
   // The material scalar carries the board's 0.65 roughness, so the roughness
   // map is a multiplier around it rather than an absolute value. That keeps the
@@ -537,16 +558,14 @@ function buildFoilMasks(texture, binding, seed) {
     (d, i) => (CLOTH_METALNESS + (FOIL_METALNESS - CLOTH_METALNESS) * foilStrength(d, i)) / FOIL_METALNESS
   )
   write('roughnessMap', (d, i) => {
-    const s = foilStrength(d, i)
-    if (s > 0.15) return FOIL_ROUGHNESS / COVER_BASE_ROUGHNESS
-    const varied = Math.max(-spec.roughSwing, Math.min(spec.roughSwing, wearVariation(px(i), py(i))))
-    return Math.max(0.2, Math.min(1, 1 + varied))
+    if (foilStrength(d, i) > 0.15) return FOIL_ROUGHNESS / COVER_BASE_ROUGHNESS
+    return Math.max(0.2, Math.min(1, 1 + wear[at(i)]))
   })
   write('clearcoatMap', (d, i) => {
     const s = foilStrength(d, i)
     // Lamination film is continuous, so the base clearcoat survives; only the
     // rubbed edge loses its film.
-    const e = edgeDistance(px(i), py(i))
+    const e = edge[at(i)]
     const film = spec.clearcoat * (1 - Math.max(0, 1 - e * 2.2) * spec.wear * 0.8)
     return Math.max(s * FOIL_CLEARCOAT, film) / FOIL_CLEARCOAT
   })
@@ -560,8 +579,7 @@ function buildFoilMasks(texture, binding, seed) {
       )
     }
     // Uneven film: the wear band scatters more than the intact centre.
-    const e = edgeDistance(px(i), py(i))
-    const scuff = Math.max(0, 1 - e * 2.2) * spec.wear
+    const scuff = Math.max(0, 1 - edge[at(i)] * 2.2) * spec.wear
     return Math.min(1, (spec.clearcoatRoughness + scuff * 0.3) / CLEARCOAT_ROUGHNESS_CEILING)
   })
 
