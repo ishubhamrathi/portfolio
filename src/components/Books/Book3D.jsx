@@ -112,25 +112,14 @@ function getSharedPageBump() {
   return sharedPageBump
 }
 
-let sharedClothBump = null
-
-// Fine woven-cloth height field for the covers. Deterministic value noise
-// crossed with a thread grid so it tiles without a visible repeat at this scale.
-function makeClothBumpTexture() {
-  const size = 256
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')
-  const image = ctx.createImageData(size, size)
-  const data = image.data
-
+// Deterministic value noise, shared by every generated map so the grain on the
+// cover, the wear on the edges and the waviness all agree with each other.
+function valueNoise(seed) {
   const hash = (x, y) => {
-    const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+    const n = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453
     return n - Math.floor(n)
   }
-
-  const smooth = (x, y, freq) => {
+  return (x, y, freq) => {
     const fx = x * freq
     const fy = y * freq
     const x0 = Math.floor(fx)
@@ -145,16 +134,100 @@ function makeClothBumpTexture() {
     const d = hash(x0 + 1, y0 + 1)
     return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy
   }
+}
+
+// Binding types. Roughness sits inside the ranges from the spec; gloss differs
+// mostly in how much clearcoat it carries rather than in base roughness, since
+// clearcoat is a separate lobe and does not wash out the printed artwork.
+const BINDINGS = {
+  hardcover: {
+    roughness: 0.72,
+    roughSwing: 0.07,
+    metalness: 0.04,
+    clearcoat: 0.06,
+    clearcoatRoughness: 0.55,
+    bumpScale: 0.055,
+    grainRepeat: [5, 7],
+    grainStrength: 0.5,
+    wear: 0.5,
+  },
+  paperback: {
+    roughness: 0.6,
+    roughSwing: 0.08,
+    metalness: 0.02,
+    clearcoat: 0.14,
+    clearcoatRoughness: 0.42,
+    bumpScale: 0.03,
+    grainRepeat: [8, 11],
+    grainStrength: 0.3,
+    wear: 0.34,
+  },
+  gloss: {
+    roughness: 0.33,
+    roughSwing: 0.055,
+    metalness: 0.05,
+    clearcoat: 0.34,
+    clearcoatRoughness: 0.16,
+    bumpScale: 0.016,
+    grainRepeat: [11, 15],
+    grainStrength: 0.16,
+    wear: 0.22,
+  },
+}
+
+const BINDING_KEYS = Object.keys(BINDINGS)
+
+// No binding field comes from the API, so it is derived from genre where the
+// genre implies one and otherwise falls back to a stable hash of the id. The
+// same book always gets the same finish.
+function deriveBinding(book) {
+  const text = `${book?.genre || ''} ${book?.category || ''}`.toLowerCase()
+  if (/gloss|luxury|collector|coffee.?table|art/.test(text)) return 'gloss'
+  if (/paperback|thriller|novel|romance|fantasy|sci.?fi/.test(text)) return 'paperback'
+  if (/hardcover|academic|textbook|cookbook|business|non.?fiction/.test(text)) return 'hardcover'
+
+  const key = String(book?.id || book?.title || '')
+  let seed = 0
+  for (let i = 0; i < key.length; i++) seed = (seed * 31 + key.charCodeAt(i)) >>> 0
+  return BINDING_KEYS[seed % BINDING_KEYS.length]
+}
+
+// Height field per finish: a woven cloth grid, a fine paper grain, or the soft
+// orange-peel of a laminate, each with a low-frequency waviness layer so the
+// cover is never geometrically flat.
+function makeGrainTexture(binding, seed) {
+  const spec = BINDINGS[binding]
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  const image = ctx.createImageData(size, size)
+  const data = image.data
+  const noise = valueNoise(seed % 97)
+
+  const threads = binding === 'hardcover' ? 44 : 0
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const u = x / size
       const v = y / size
-      const warp = Math.sin(u * Math.PI * 2 * 48) * 0.5 + 0.5
-      const weft = Math.sin(v * Math.PI * 2 * 48) * 0.5 + 0.5
-      const weave = (warp * 0.5 + weft * 0.5) * 0.55
-      const grain = smooth(u, v, 24) * 0.3 + smooth(u, v, 48) * 0.15
-      const val = Math.round(118 + (weave + grain - 0.5) * 74)
+      let h = 0
+
+      if (threads) {
+        const warp = Math.sin(u * Math.PI * 2 * threads) * 0.5 + 0.5
+        const weft = Math.sin(v * Math.PI * 2 * threads) * 0.5 + 0.5
+        h += (warp * 0.5 + weft * 0.5) * spec.grainStrength
+      }
+
+      // Fine paper fibre / laminate tooth.
+      h += (noise(u, v, 64) * 0.55 + noise(u, v, 128) * 0.45) * spec.grainStrength * 0.6
+
+      // Board waviness: broad, very low amplitude, so highlights bend across
+      // the cover instead of reflecting as one clean sheet.
+      h += (noise(u, v, 3) - 0.5) * 0.22
+
+      const val = Math.round(128 + (h - 0.35) * 150)
       const i = (y * size + x) * 4
       data[i] = val
       data[i + 1] = val
@@ -167,18 +240,21 @@ function makeClothBumpTexture() {
   return canvas
 }
 
-function getSharedClothBump() {
-  if (sharedClothBump) return sharedClothBump
-  const texture = new CanvasTexture(makeClothBumpTexture())
+const grainCache = new Map()
+
+function getGrainTexture(binding, seed) {
+  const key = `${binding}:${seed % 97}`
+  if (grainCache.has(key)) return grainCache.get(key)
+  const texture = new CanvasTexture(makeGrainTexture(binding, seed))
   texture.colorSpace = NoColorSpace
   texture.wrapS = RepeatWrapping
   texture.wrapT = RepeatWrapping
   texture.minFilter = LinearMipmapLinearFilter
   texture.magFilter = LinearFilter
   texture.generateMipmaps = true
-  texture.repeat.set(5, 7)
-  sharedClothBump = texture
-  return sharedClothBump
+  texture.repeat.set(BINDINGS[binding].grainRepeat[0], BINDINGS[binding].grainRepeat[1])
+  grainCache.set(key, texture)
+  return texture
 }
 
 function makeSpineTexture(book, maxAnisotropy) {
@@ -351,12 +427,17 @@ const foilMaskCache = new Map()
 // does not wash the diffuse layer the way low roughness does.
 const FOIL_METALNESS = 0.8
 const CLOTH_METALNESS = 0.05
-const COVER_ROUGHNESS = 0.45
+const FOIL_ROUGHNESS = 0.25
 const FOIL_CLEARCOAT = 0.3
 const FOIL_CLEARCOAT_ROUGHNESS = 0.1
+
+// Ceilings for the two multiplicative maps. Values above these would be
+// unreachable through the map, so the material scalars sit here and the maps
+// express everything below them.
+const COVER_ROUGHNESS_CEILING = 1.0
 const CLEARCOAT_ROUGHNESS_CEILING = 0.5
 
-function buildFoilMasks(texture) {
+function buildFoilMasks(texture, binding, seed) {
   const source = texture?.image
   if (!source || !source.width || !source.height) return null
 
@@ -420,24 +501,71 @@ function buildFoilMasks(texture) {
     return isFoil ? Math.min(1, sat * 1.6) : 0
   }
 
+  const spec = BINDINGS[binding]
+  const noise = valueNoise((seed % 89) + 1)
+
+  // Distance to the nearest cover edge, normalised, drives the wear ring: the
+  // corners and spine edge of a handled book are rubbed smoother and lighter.
+  const edgeDistance = (px, py) => {
+    const dx = Math.min(px, 1 - px)
+    const dy = Math.min(py, 1 - py)
+    return Math.min(1, Math.min(dx * 2.6, dy * 3.4))
+  }
+
+  // Cover wear is signed: a band of rubbed-smooth (lower roughness) right at the
+  // edge, scuffs and dulling (higher roughness) just inside it, then the
+  // per-pixel grain. This is what stops the surface reading as one clean sheet.
+  // Signed variation around the binding's base roughness. The worn band pulls
+  // down (rubbed smooth) and the scuff band pushes up, but the total excursion
+  // is clamped to the binding's own range so the finish never drifts out of
+  // spec at the corners, which are where the distance field saturates.
+  const wearVariation = (u, v) => {
+    const e = edgeDistance(u, v)
+    const rub = Math.max(0, 1 - e * 3.4) * spec.wear
+    const scuff = Math.max(0, 1 - Math.abs(e - 0.16) * 5) * spec.wear * 0.55
+    const grain = (noise(u, v, 96) - 0.5) * 0.1 + (noise(u, v, 12) - 0.5) * 0.07
+    const raw = rub * 0.3 + scuff * 0.22 + grain
+    return Math.max(-spec.roughSwing, Math.min(spec.roughSwing, raw))
+  }
+
+  const px = (i) => (i % (w * 4)) / w
+  const py = (i) => Math.floor(i / (w * 4)) / h
+
   // Normalised against each ceiling so the material scalars can carry the
-  // target values directly and the maps only express the foil/cloth split.
+  // target values directly and the maps only express the variation.
   write(
     'metalnessMap',
-    (d, i) => (CLOTH_METALNESS + (FOIL_METALNESS - CLOTH_METALNESS) * foilStrength(d, i)) / FOIL_METALNESS
+    (d, i) =>
+      (CLOTH_METALNESS + (FOIL_METALNESS - CLOTH_METALNESS) * foilStrength(d, i)) / FOIL_METALNESS
   )
-  // Uniform 0.45 across the cover, so this map is flat and exists only to keep
-  // the four-map set symmetrical if the roughness split ever becomes per-pixel.
-  write('roughnessMap', () => COVER_ROUGHNESS / COVER_ROUGHNESS)
-  write('clearcoatMap', (d, i) => (FOIL_CLEARCOAT * foilStrength(d, i)) / FOIL_CLEARCOAT)
+  write('roughnessMap', (d, i) => {
+    const s = foilStrength(d, i)
+    // Foil is stamped and polished; the surrounding board carries the wear.
+    const base = s > 0.15 ? FOIL_ROUGHNESS : spec.roughness
+    const varied = Math.min(1, Math.max(0.04, base + wearVariation(px(i), py(i))))
+    return varied / COVER_ROUGHNESS_CEILING
+  })
+  write('clearcoatMap', (d, i) => {
+    const s = foilStrength(d, i)
+    // Lamination film is continuous, so the base clearcoat survives; only the
+    // rubbed edge loses its film.
+    const e = edgeDistance(px(i), py(i))
+    const film = spec.clearcoat * (1 - Math.max(0, 1 - e * 2.2) * spec.wear * 0.8)
+    return Math.max(s * FOIL_CLEARCOAT, film) / FOIL_CLEARCOAT
+  })
   write('clearcoatRoughnessMap', (d, i) => {
     const s = foilStrength(d, i)
-    // Cloth gets no clearcoat, so its roughness is inert; keep it out of range.
-    return s > 0
-      ? (CLEARCOAT_ROUGHNESS_CEILING +
+    if (s > 0.15) {
+      return (
+        (CLEARCOAT_ROUGHNESS_CEILING +
           (FOIL_CLEARCOAT_ROUGHNESS - CLEARCOAT_ROUGHNESS_CEILING) * s) /
         CLEARCOAT_ROUGHNESS_CEILING
-      : 1
+      )
+    }
+    // Uneven film: the wear band scatters more than the intact centre.
+    const e = edgeDistance(px(i), py(i))
+    const scuff = Math.max(0, 1 - e * 2.2) * spec.wear
+    return Math.min(1, (spec.clearcoatRoughness + scuff * 0.3) / CLEARCOAT_ROUGHNESS_CEILING)
   })
 
   const prep = (canvas) => {
@@ -456,11 +584,12 @@ function buildFoilMasks(texture) {
   return out
 }
 
-function getFoilMasks(texture) {
+function getFoilMasks(texture, binding, seed) {
   if (!texture) return null
-  if (foilMaskCache.has(texture)) return foilMaskCache.get(texture)
-  const masks = buildFoilMasks(texture)
-  foilMaskCache.set(texture, masks)
+  const key = `${texture.uuid}:${binding}:${seed % 89}`
+  if (foilMaskCache.has(key)) return foilMaskCache.get(key)
+  const masks = buildFoilMasks(texture, binding, seed)
+  foilMaskCache.set(key, masks)
   return masks
 }
 
@@ -539,6 +668,12 @@ export default function Book3D({
   )
 
   const coverTexture = useCoverTexture(book.coverUrl, maxAnisotropy)
+  const bookSeed = useMemo(() => {
+    const key = String(book.id || book.title || '')
+    let acc = 0
+    for (let i = 0; i < key.length; i++) acc = (acc * 31 + key.charCodeAt(i)) >>> 0
+    return acc
+  }, [book.id, book.title])
   const fallbackCoverTexture = useMemo(
     () => getCachedTexture(fallbackCoverCache, book, (b) => makeFallbackCoverTexture(b, maxAnisotropy), maxAnisotropy),
     [book, maxAnisotropy]
@@ -609,9 +744,13 @@ export default function Book3D({
 
   const spineColor = book.spineColor || '#1E1B18'
   const coverMap = coverTexture || fallbackCoverTexture
-  const clothBump = useMemo(() => getSharedClothBump(), [])
+  const binding = useMemo(() => deriveBinding(book), [book])
+  const grainMap = useMemo(() => getGrainTexture(binding, bookSeed), [binding, bookSeed])
   const pageBump = useMemo(() => getSharedPageBump(), [])
-  const foilMasks = useMemo(() => getFoilMasks(coverMap), [coverMap])
+  const foilMasks = useMemo(
+    () => getFoilMasks(coverMap, binding, bookSeed),
+    [coverMap, binding, bookSeed]
+  )
 
   // Three.js BoxGeometry face indices:
   // 0: +X (right side - pages)
@@ -621,6 +760,7 @@ export default function Book3D({
   // 4: +Z (front - cover)
   // 5: -Z (back - cover back)
   const materials = useMemo(() => {
+    const spec = BINDINGS[binding]
     const pageMaterial = (tint) =>
       new MeshPhysicalMaterial({
         map: pageTexture,
@@ -639,12 +779,12 @@ export default function Book3D({
       // 1: Left side (spine)
       new MeshPhysicalMaterial({
         map: spineTexture,
-        bumpMap: clothBump,
-        bumpScale: 0.04,
-        roughness: 0.82,
-        metalness: 0.04,
-        clearcoat: 0.12,
-        clearcoatRoughness: 0.75,
+        bumpMap: grainMap,
+        bumpScale: spec.bumpScale,
+        roughness: Math.min(0.9, spec.roughness + 0.1),
+        metalness: spec.metalness,
+        clearcoat: spec.clearcoat * 0.6,
+        clearcoatRoughness: Math.min(0.6, spec.clearcoatRoughness + 0.15),
         envMapIntensity: 0.3,
       }),
       // 2: Top (pages)
@@ -654,35 +794,35 @@ export default function Book3D({
       // 4: Front face (cover)
       new MeshPhysicalMaterial({
         map: coverMap,
-        bumpMap: clothBump,
-        bumpScale: 0.05,
+        bumpMap: grainMap,
+        bumpScale: spec.bumpScale,
         color: '#ffffff',
-        // With masks present these scalars are the ceiling and the maps carry
-        // the per-pixel split; the maps are normalised so the products land on
-        // exactly these values at each end. Without masks they stand alone.
+        // These scalars are the ceilings; the maps carry every per-pixel
+        // decision and are normalised so the products land on the intended
+        // values. Without maps they fall back to the flat board values.
         metalness: foilMasks ? FOIL_METALNESS : CLOTH_METALNESS,
-        roughness: COVER_ROUGHNESS,
+        roughness: foilMasks ? COVER_ROUGHNESS_CEILING : spec.roughness,
         metalnessMap: foilMasks?.metalnessMap,
         roughnessMap: foilMasks?.roughnessMap,
-        clearcoat: FOIL_CLEARCOAT,
+        clearcoat: foilMasks ? FOIL_CLEARCOAT : spec.clearcoat,
         clearcoatMap: foilMasks?.clearcoatMap,
-        clearcoatRoughness: CLEARCOAT_ROUGHNESS_CEILING,
+        clearcoatRoughness: foilMasks ? CLEARCOAT_ROUGHNESS_CEILING : spec.clearcoatRoughness,
         clearcoatRoughnessMap: foilMasks?.clearcoatRoughnessMap,
         envMapIntensity: 0.3,
       }),
-      // 5: Back face (cover back)
+      // 5: Back face (cover back) - unlaminated board, so duller than the front
       new MeshPhysicalMaterial({
         color: spineColor,
-        bumpMap: clothBump,
-        bumpScale: 0.04,
-        roughness: 0.88,
-        metalness: 0.04,
-        clearcoat: 0.08,
-        clearcoatRoughness: 0.85,
+        bumpMap: grainMap,
+        bumpScale: spec.bumpScale,
+        roughness: Math.min(0.95, spec.roughness + 0.16),
+        metalness: spec.metalness,
+        clearcoat: spec.clearcoat * 0.3,
+        clearcoatRoughness: Math.min(0.7, spec.clearcoatRoughness + 0.25),
         envMapIntensity: 0.25,
       }),
     ]
-  }, [spineColor, coverMap, spineTexture, pageTexture, pageBump, clothBump, foilMasks])
+  }, [spineColor, coverMap, spineTexture, pageTexture, pageBump, grainMap, foilMasks, binding])
 
   useEffect(() => {
     return () => {
