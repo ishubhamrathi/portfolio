@@ -164,11 +164,13 @@ function LoadingFallback() {
   )
 }
 
-// Stands in for the canvas before the WebGL context exists, so the section
-// still has the shape and tone of a shelf rather than an empty dark box.
+// Stands in for the canvas, both before the WebGL context exists and while its
+// loop is frozen, so the section always has the shape and tone of a shelf
+// rather than an empty dark box. Absolute so it can overlay the canvas without
+// contributing layout height.
 function ShelfPlaceholder({ books }) {
   return (
-    <div className="flex h-full w-full flex-col justify-center gap-6 px-8">
+    <div className="absolute inset-0 flex flex-col justify-center gap-6 bg-[#0B0F17] px-8">
       {[0, 1].map((tier) => (
         <div key={tier} className="flex items-end gap-4">
           {books.slice(0, 4).map((book, i) => (
@@ -295,16 +297,26 @@ export default function Bookshelf3D({
 }) {
   const [pageIndex, setPageIndex] = useState(0)
   const [aspect, setAspect] = useState(FALLBACK_ASPECT)
-  // The WebGL context is expensive on mobile, so it is not created until the
-  // shelf is close to the viewport, and it stops rendering entirely once the
-  // shelf is scrolled away or the user is mid-scroll. Without this the canvas
-  // renders every frame from page load, which starves the compositor and shows
-  // up as a black box during scrolling.
+  // The WebGL context plus shader compilation is the expensive part, and it used
+  // to happen at page load, competing with the compositor on every scroll frame.
+  // Triggering it on scroll-into-view was worse: the whole cost landed in the
+  // frame the user was scrolling through. So the context is created during idle
+  // time and the render loop is gated separately on visibility.
   const [shouldMount, setShouldMount] = useState(false)
   const [isLive, setIsLive] = useState(false)
   const [scrolling, setScrolling] = useState(false)
   const wrapRef = useRef(null)
   const { playClick } = useSound()
+
+  useEffect(() => {
+    if (typeof requestIdleCallback === 'undefined') {
+      const id = setTimeout(() => setShouldMount(true), 1)
+      return () => clearTimeout(id)
+    }
+    // The timeout guarantees it still happens if the page never goes idle.
+    const id = requestIdleCallback(() => setShouldMount(true), { timeout: 2000 })
+    return () => cancelIdleCallback(id)
+  }, [])
 
   useEffect(() => {
     const el = wrapRef.current
@@ -322,21 +334,14 @@ export default function Bookshelf3D({
   useEffect(() => {
     const el = wrapRef.current
     if (!el || typeof IntersectionObserver === 'undefined') {
-      setShouldMount(true)
+      setIsLive(true)
       return undefined
     }
-    // A generous root margin means the context is already warm by the time the
-    // shelf scrolls into view, which is what removes the visible stall.
+    // A generous margin so the loop is already running by the time the shelf is
+    // on screen, which is what keeps a warm context from flashing.
     const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShouldMount(true)
-          setIsLive(true)
-        } else {
-          setIsLive(false)
-        }
-      },
-      { rootMargin: '600px 0px', threshold: 0 }
+      ([entry]) => setIsLive(entry.isIntersecting),
+      { rootMargin: '400px 0px', threshold: 0 }
     )
     io.observe(el)
     return () => io.disconnect()
@@ -430,14 +435,10 @@ export default function Bookshelf3D({
               />
             </Suspense>
           </Canvas>
-          {/* Covers the canvas whenever the loop is frozen, so an off-screen or
-              mid-scroll shelf never presents the bare container background. */}
-          {!isLive && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[#0B0F17]"
-            />
-          )}
+          {/* Covers the canvas while the loop is frozen. Without this the
+              container background shows through as a black box, which is the
+              same artefact the loop gating exists to prevent. */}
+          {!isLive && <ShelfPlaceholder books={books} />}
         </>
       ) : (
         <ShelfPlaceholder books={books} />
