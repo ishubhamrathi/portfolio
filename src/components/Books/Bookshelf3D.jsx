@@ -5,6 +5,7 @@ import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import Book3D, { BOOK_WIDTH, BOOK_HEIGHT, BOOK_DEPTH } from '@/components/Books/Book3D'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2'
 import { useSound } from '@/context/SoundProvider'
+import { isAnimatable, onGateChange } from '@/lib/rafGate'
 
 const TIER_HEIGHT = 4.4
 const TIERS_PER_PAGE = 2
@@ -140,11 +141,47 @@ function ShelfPlank({ width, y, isTop = false, isBottom = false }) {
   )
 }
 
+// Switching frameloop to 'never' lets the rAF loop cancel itself, and setting
+// it back to 'always' does not reschedule anything. The invalidate() is what
+// actually restarts the loop, so it has to follow every switch to 'always'.
+function RenderGate({ active }) {
+  const setFrameloop = useThree((state) => state.setFrameloop)
+  const invalidate = useThree((state) => state.invalidate)
+
+  useEffect(() => {
+    setFrameloop(active ? 'always' : 'never')
+    if (active) invalidate()
+  }, [active, setFrameloop, invalidate])
+
+  return null
+}
+
 function LoadingFallback() {
   return (
     <group>
-      <ambientLight intensity={1.2} color="#FFF7ED" />
+      <ambientLight intensity={0.35} color="#FFF7ED" />
     </group>
+  )
+}
+
+// Stands in for the canvas before the WebGL context exists, so the section
+// still has the shape and tone of a shelf rather than an empty dark box.
+function ShelfPlaceholder({ books }) {
+  return (
+    <div className="flex h-full w-full flex-col justify-center gap-6 px-8">
+      {[0, 1].map((tier) => (
+        <div key={tier} className="flex items-end gap-4">
+          {books.slice(0, 4).map((book, i) => (
+            <div
+              key={book.id || i}
+              className="shimmer h-32 w-20 shrink-0 rounded-md border border-white/10 bg-white/[0.04]"
+              style={{ opacity: 1 - tier * 0.25 }}
+            />
+          ))}
+          <div className="h-1 flex-1 rounded-full bg-white/10" />
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -166,11 +203,12 @@ function ShelfScene({
       {/* Transparent background - no color attachment */}
 
       {/* Key: warm, front-top, and the only shadow caster. Frustum is derived
-          from shelfWidth so the map resolution lands on the books. */}
+          from shelfWidth so the map resolution lands on the books. Kept modest
+          so highlights stay on the artwork instead of blowing out the blacks. */}
       <directionalLight
-        position={[3, 5, 5]}
-        intensity={3.5}
-        color="#FFF8EE"
+        position={[3, 5, 4]}
+        intensity={2.2}
+        color="#FFF8F0"
         castShadow
         shadow-mapSize-width={isMobile ? 1024 : 2048}
         shadow-mapSize-height={isMobile ? 1024 : 2048}
@@ -186,9 +224,11 @@ function ShelfScene({
 
       {/* Rim: cold light from behind-left. Grazes the top and spine edges so the
           covers separate from the dark backdrop instead of merging into it. */}
-      <directionalLight position={[-3, 4, -3]} intensity={2.0} color="#E0F0FF" />
+      <directionalLight position={[-3, 4, -3]} intensity={1.1} color="#E0F0FF" />
 
-      <ambientLight intensity={0.6} color="#FFF7ED" />
+      {/* Low ambient: enough to keep the shadow side readable, not enough to
+          lift the blacks on covers like The Art of War into grey. */}
+      <ambientLight intensity={0.35} color="#FFF7ED" />
 
       {/* Shelf Frame - clean floating planks */}
       {tiers.map((tierBooks, tierIndex) => {
@@ -255,6 +295,14 @@ export default function Bookshelf3D({
 }) {
   const [pageIndex, setPageIndex] = useState(0)
   const [aspect, setAspect] = useState(FALLBACK_ASPECT)
+  // The WebGL context is expensive on mobile, so it is not created until the
+  // shelf is close to the viewport, and it stops rendering entirely once the
+  // shelf is scrolled away or the user is mid-scroll. Without this the canvas
+  // renders every frame from page load, which starves the compositor and shows
+  // up as a black box during scrolling.
+  const [shouldMount, setShouldMount] = useState(false)
+  const [isLive, setIsLive] = useState(false)
+  const [scrolling, setScrolling] = useState(false)
   const wrapRef = useRef(null)
   const { playClick } = useSound()
 
@@ -270,6 +318,31 @@ export default function Bookshelf3D({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setShouldMount(true)
+      return undefined
+    }
+    // A generous root margin means the context is already warm by the time the
+    // shelf scrolls into view, which is what removes the visible stall.
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldMount(true)
+          setIsLive(true)
+        } else {
+          setIsLive(false)
+        }
+      },
+      { rootMargin: '600px 0px', threshold: 0 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  useEffect(() => onGateChange(() => setScrolling(!isAnimatable())), [])
 
   const layout = useMemo(
     () => getLayout(aspect, isMobile, books.length, TIERS_PER_PAGE),
@@ -320,39 +393,55 @@ export default function Bookshelf3D({
 
   return (
     <div ref={wrapRef} className="relative w-full h-[550px] sm:h-[600px] md:h-[650px]">
-      <Canvas
-        camera={{
-          position: [0, 1.8, 8.5],
-          fov: CAMERA_FOV,
-          near: 0.1,
-          far: 100,
-        }}
-        dpr={[1, 2]}
-        shadows
-        gl={{
-          alpha: true,
-          antialias: true,
-          preserveDrawingBuffer: false,
-          powerPreference: 'high-performance',
-          toneMapping: ACESFilmicToneMapping,
-          toneMappingExposure: 1.25,
-          outputColorSpace: SRGBColorSpace,
-        }}
-        resize={{ scroll: false }}
-        className="h-full w-full"
-      >
-        <CameraSetup shelfWidth={shelfWidth} numTiers={numTiers} />
-        <Suspense fallback={<LoadingFallback />}>
-          <ShelfScene
-            tiers={tiers}
-            numTiers={numTiers}
-            shelfWidth={shelfWidth}
-            spacing={layout.spacing}
-            onSelectBook={onSelectBook}
-            isMobile={isMobile}
-          />
-        </Suspense>
-      </Canvas>
+      {shouldMount ? (
+        <>
+          <Canvas
+            camera={{
+              position: [0, 1.8, 8.5],
+              fov: CAMERA_FOV,
+              near: 0.1,
+              far: 100,
+            }}
+            dpr={isMobile ? 1 : [1, 2]}
+            shadows
+            gl={{
+              alpha: true,
+              antialias: true,
+              preserveDrawingBuffer: false,
+              powerPreference: 'high-performance',
+              toneMapping: ACESFilmicToneMapping,
+              // Kept at 1.0: dark cover art loses its blacks well before 1.1.
+              toneMappingExposure: 1.0,
+              outputColorSpace: SRGBColorSpace,
+            }}
+            resize={{ scroll: false }}
+            className="h-full w-full"
+          >
+            <CameraSetup shelfWidth={shelfWidth} numTiers={numTiers} />
+            <RenderGate active={isLive && !scrolling} />
+            <Suspense fallback={<LoadingFallback />}>
+              <ShelfScene
+                tiers={tiers}
+                numTiers={numTiers}
+                shelfWidth={shelfWidth}
+                spacing={layout.spacing}
+                onSelectBook={onSelectBook}
+                isMobile={isMobile}
+              />
+            </Suspense>
+          </Canvas>
+          {/* Covers the canvas whenever the loop is frozen, so an off-screen or
+              mid-scroll shelf never presents the bare container background. */}
+          {!isLive && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[#0B0F17]"
+            />
+          )}
+        </>
+      ) : (
+        <ShelfPlaceholder books={books} />
+      )}
 
       {totalPages > 1 && (
         <>
