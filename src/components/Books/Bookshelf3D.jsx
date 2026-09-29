@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows } from '@react-three/drei'
+import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import Book3D, { BOOK_WIDTH, BOOK_HEIGHT, BOOK_DEPTH } from '@/components/Books/Book3D'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2'
 import { useSound } from '@/context/SoundProvider'
@@ -164,14 +165,11 @@ function ShelfScene({
     <group position={[0, 0, 0]}>
       {/* Transparent background - no color attachment */}
 
-      {/* Warm ambient base lighting */}
-      <ambientLight intensity={0.85} color="#FFF7ED" />
-
-      {/* Warm key light from above and front-left, framed to the shelf so the
-          shadow map resolution is spent on the books rather than empty space. */}
+      {/* Key: warm, front-top, and the only shadow caster. Frustum is derived
+          from shelfWidth so the map resolution lands on the books. */}
       <directionalLight
-        position={[3, 6, 4]}
-        intensity={2.5}
+        position={[3, 5, 5]}
+        intensity={3.5}
         color="#FFF8EE"
         castShadow
         shadow-mapSize-width={isMobile ? 1024 : 2048}
@@ -186,14 +184,11 @@ function ShelfScene({
         shadow-camera-bottom={-shadowExtent}
       />
 
-      {/* Front-facing light so cover typography renders crisp and unshadowed */}
-      <directionalLight position={[0, 2, 5]} intensity={3.0} color="#FFFFFF" />
+      {/* Rim: cold light from behind-left. Grazes the top and spine edges so the
+          covers separate from the dark backdrop instead of merging into it. */}
+      <directionalLight position={[-3, 4, -3]} intensity={2.0} color="#E0F0FF" />
 
-      {/* Soft fill light from top-right */}
-      <pointLight position={[6, 5, 6]} intensity={1.1} color="#FEF3C7" decay={1.5} distance={20} />
-
-      {/* Subtle rim light from above/behind for cover readability */}
-      <directionalLight position={[0, 6, -3]} intensity={0.6} color="#E2E8F0" />
+      <ambientLight intensity={0.6} color="#FFF7ED" />
 
       {/* Shelf Frame - clean floating planks */}
       {tiers.map((tierBooks, tierIndex) => {
@@ -334,12 +329,14 @@ export default function Bookshelf3D({
         }}
         dpr={[1, 2]}
         shadows
-        flat
         gl={{
           alpha: true,
           antialias: true,
           preserveDrawingBuffer: false,
           powerPreference: 'high-performance',
+          toneMapping: ACESFilmicToneMapping,
+          toneMappingExposure: 1.25,
+          outputColorSpace: SRGBColorSpace,
         }}
         resize={{ scroll: false }}
         className="h-full w-full"
