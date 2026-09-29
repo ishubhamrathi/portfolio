@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
+import { ContactShadows } from '@react-three/drei'
 import Book3D, { BOOK_WIDTH, BOOK_HEIGHT, BOOK_DEPTH } from '@/components/Books/Book3D'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2'
 import { useSound } from '@/context/SoundProvider'
@@ -21,10 +22,17 @@ const WIDTH_BUDGET_RATIO = 0.98
 const FALLBACK_ASPECT = 1.4
 const MOBILE_SLOTS = 2
 
+// The plank mesh is centred on tierY - SHELF_PLANK_HEIGHT / 2 with a height of
+// SHELF_PLANK_HEIGHT, so its top face lands exactly on tierY. Books therefore
+// sit at tierY + BOOK_HEIGHT / 2 with no extra offset, giving flush contact.
+export function getTierTopY(tierIndex, numTiers) {
+  return ((numTiers - 1) / 2 - tierIndex) * TIER_HEIGHT
+}
+
 function getSceneBounds(numTiers) {
-  const top = ((numTiers - 1) / 2) * TIER_HEIGHT + SHELF_PLANK_HEIGHT / 2 + BOOK_HEIGHT
+  const top = ((numTiers - 1) / 2) * TIER_HEIGHT + BOOK_HEIGHT
   const bottom =
-    -((numTiers - 1) / 2) * TIER_HEIGHT - SHELF_PLANK_HEIGHT / 2 - SCENE_FOOT_PADDING
+    -((numTiers - 1) / 2) * TIER_HEIGHT - SHELF_PLANK_HEIGHT - SCENE_FOOT_PADDING
   return { top, bottom, height: top - bottom, centerY: (top + bottom) / 2 }
 }
 
@@ -92,6 +100,13 @@ function ShelfPlank({ width, y, isTop = false, isBottom = false }) {
         />
       </mesh>
 
+      {/* Vertical backboard so the books have something to cast onto and the
+          shelf reads as a recess rather than a floating slab. */}
+      <mesh position={[0, SHELF_PLANK_HEIGHT / 2 + 0.55, -SHELF_PLANK_DEPTH / 2 + 0.03]} receiveShadow>
+        <boxGeometry args={[width, 1.1, 0.06]} />
+        <meshStandardMaterial color="#1C120D" roughness={0.85} metalness={0.05} />
+      </mesh>
+
       {/* Front edge lip/trim for depth */}
       <mesh position={[0, SHELF_PLANK_HEIGHT / 2 + 0.015, SHELF_PLANK_DEPTH / 2 - 0.02]} receiveShadow castShadow>
         <boxGeometry args={[width, 0.03, 0.04]} />
@@ -140,8 +155,8 @@ function ShelfScene({
   onSelectBook,
   isMobile = false,
 }) {
-  const topTierY = ((numTiers - 1) / 2) * TIER_HEIGHT
-  const bottomTierY = -((numTiers - 1) / 2) * TIER_HEIGHT
+  // Covers the widest tier plus the light's oblique throw across the plank.
+  const shadowExtent = Math.max(shelfWidth / 2 + 1.5, TIER_HEIGHT * numTiers * 0.6, 4)
 
   const spotlightX = isMobile ? 0 : -1.2
 
@@ -152,22 +167,23 @@ function ShelfScene({
       {/* Warm ambient base lighting */}
       <ambientLight intensity={0.85} color="#FFF7ED" />
 
-      {/* Warm directional key light from top-front-left - casts shadows */}
+      {/* Warm key light from above and front-left, framed to the shelf so the
+          shadow map resolution is spent on the books rather than empty space. */}
       <directionalLight
-        position={[2, 6, 4]}
-        intensity={2.4}
+        position={[3, 6, 4]}
+        intensity={2.5}
         color="#FFF8EE"
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={isMobile ? 1024 : 2048}
+        shadow-mapSize-height={isMobile ? 1024 : 2048}
         shadow-bias={-0.0001}
         shadow-normalBias={0.02}
         shadow-camera-near={0.5}
-        shadow-camera-far={20}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-8}
+        shadow-camera-far={24}
+        shadow-camera-left={-shadowExtent}
+        shadow-camera-right={shadowExtent}
+        shadow-camera-top={shadowExtent}
+        shadow-camera-bottom={-shadowExtent}
       />
 
       {/* Front-facing light so cover typography renders crisp and unshadowed */}
@@ -180,26 +196,40 @@ function ShelfScene({
       <directionalLight position={[0, 6, -3]} intensity={0.6} color="#E2E8F0" />
 
       {/* Shelf Frame - clean floating planks */}
-      {tiers.map((_, tierIndex) => {
-        const tierY = ((numTiers - 1) / 2 - tierIndex) * TIER_HEIGHT
-        const plankY = tierY - SHELF_PLANK_HEIGHT / 2
+      {tiers.map((tierBooks, tierIndex) => {
+        const shelfTopY = getTierTopY(tierIndex, numTiers)
         const isBottomTier = tierIndex === numTiers - 1
+        // frames={1} bakes the contact shadow once, so the key has to change
+        // with the tier's contents or paging would leave a stale shadow.
+        const contactKey = tierBooks.map((b) => b.id).join('-')
 
         return (
-          <ShelfPlank
-            key={`plank-${tierIndex}`}
-            width={shelfWidth}
-            y={plankY}
-            isTop={tierIndex === 0}
-            isBottom={isBottomTier}
-          />
+          <group key={`tier-${tierIndex}-${contactKey}`}>
+            <ShelfPlank
+              width={shelfWidth}
+              y={shelfTopY - SHELF_PLANK_HEIGHT / 2}
+              isTop={tierIndex === 0}
+              isBottom={isBottomTier}
+            />
+
+            <ContactShadows
+              position={[0, shelfTopY + 0.005, 0]}
+              scale={[shelfWidth, SHELF_PLANK_DEPTH * 1.6]}
+              resolution={isMobile ? 256 : 512}
+              blur={2.4}
+              far={1.1}
+              opacity={0.9}
+              color="#120b07"
+              frames={1}
+            />
+          </group>
         )
       })}
 
       {/* Books arranged on each shelf tier - sitting ON the plank */}
       {tiers.map((tierBooks, tierIndex) => {
-        const tierY = ((numTiers - 1) / 2 - tierIndex) * TIER_HEIGHT
-        const bookY = tierY + SHELF_PLANK_HEIGHT / 2 + BOOK_HEIGHT / 2
+        const tierY = getTierTopY(tierIndex, numTiers)
+        const bookY = tierY + BOOK_HEIGHT / 2
         const count = tierBooks.length
         const totalSpan = (count - 1) * spacing
         const startX = -totalSpan / 2
