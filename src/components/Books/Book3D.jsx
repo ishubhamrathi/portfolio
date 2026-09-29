@@ -136,14 +136,14 @@ function valueNoise(seed) {
   }
 }
 
-// Binding types. Roughness sits inside the ranges from the spec; gloss differs
-// mostly in how much clearcoat it carries rather than in base roughness, since
-// clearcoat is a separate lobe and does not wash out the printed artwork.
+// Binding types. Base roughness is shared across all of them (see
+// COVER_BASE_ROUGHNESS) so dark artwork keeps its blacks; what separates a
+// hardcover from a gloss binding is the clearcoat film and the grain, not a
+// different base roughness. Clearcoat is a separate specular lobe, so raising
+// it adds a surface highlight without lifting the diffuse layer.
 const BINDINGS = {
   hardcover: {
-    roughness: 0.72,
     roughSwing: 0.07,
-    metalness: 0.04,
     clearcoat: 0.06,
     clearcoatRoughness: 0.55,
     bumpScale: 0.055,
@@ -152,9 +152,7 @@ const BINDINGS = {
     wear: 0.5,
   },
   paperback: {
-    roughness: 0.6,
     roughSwing: 0.08,
-    metalness: 0.02,
     clearcoat: 0.14,
     clearcoatRoughness: 0.42,
     bumpScale: 0.03,
@@ -163,9 +161,7 @@ const BINDINGS = {
     wear: 0.34,
   },
   gloss: {
-    roughness: 0.33,
     roughSwing: 0.055,
-    metalness: 0.05,
     clearcoat: 0.34,
     clearcoatRoughness: 0.16,
     bumpScale: 0.016,
@@ -422,19 +418,20 @@ const foilMaskCache = new Map()
 // polarity and scaling per map: foil must be metallic (high metalness) yet
 // glossy (low roughness, low clearcoatRoughness), while the cloth around it
 // stays matte. One mask cannot serve all four, hence the set.
-// Cover body is uniformly 0.45 matte; the foil gloss comes from the clearcoat
-// pair rather than roughness, since clearcoat is a separate specular lobe that
+// The cover board is a printed dielectric: no metalness, and a roughness high
+// enough that light spreads across the artwork instead of lifting the blacks.
+// Any gloss comes from the clearcoat pair, which is a separate specular lobe and
 // does not wash the diffuse layer the way low roughness does.
+const COVER_BASE_ROUGHNESS = 0.65
+const CLOTH_METALNESS = 0.0
 const FOIL_METALNESS = 0.8
-const CLOTH_METALNESS = 0.05
 const FOIL_ROUGHNESS = 0.25
 const FOIL_CLEARCOAT = 0.3
 const FOIL_CLEARCOAT_ROUGHNESS = 0.1
 
-// Ceilings for the two multiplicative maps. Values above these would be
-// unreachable through the map, so the material scalars sit here and the maps
-// express everything below them.
-const COVER_ROUGHNESS_CEILING = 1.0
+// Ceiling for the clearcoatRoughness map. Values above this would be
+// unreachable through the map, so the material scalar sits here and the map
+// expresses everything below it.
 const CLEARCOAT_ROUGHNESS_CEILING = 0.5
 
 function buildFoilMasks(texture, binding, seed) {
@@ -531,19 +528,19 @@ function buildFoilMasks(texture, binding, seed) {
   const px = (i) => (i % (w * 4)) / w
   const py = (i) => Math.floor(i / (w * 4)) / h
 
-  // Normalised against each ceiling so the material scalars can carry the
-  // target values directly and the maps only express the variation.
+  // The material scalar carries the board's 0.65 roughness, so the roughness
+  // map is a multiplier around it rather than an absolute value. That keeps the
+  // 0.65 target readable in the material while the map still adds per-pixel
+  // variation and drops the stamped foil to a polished 0.25.
   write(
     'metalnessMap',
-    (d, i) =>
-      (CLOTH_METALNESS + (FOIL_METALNESS - CLOTH_METALNESS) * foilStrength(d, i)) / FOIL_METALNESS
+    (d, i) => (CLOTH_METALNESS + (FOIL_METALNESS - CLOTH_METALNESS) * foilStrength(d, i)) / FOIL_METALNESS
   )
   write('roughnessMap', (d, i) => {
     const s = foilStrength(d, i)
-    // Foil is stamped and polished; the surrounding board carries the wear.
-    const base = s > 0.15 ? FOIL_ROUGHNESS : spec.roughness
-    const varied = Math.min(1, Math.max(0.04, base + wearVariation(px(i), py(i))))
-    return varied / COVER_ROUGHNESS_CEILING
+    if (s > 0.15) return FOIL_ROUGHNESS / COVER_BASE_ROUGHNESS
+    const varied = Math.max(-spec.roughSwing, Math.min(spec.roughSwing, wearVariation(px(i), py(i))))
+    return Math.max(0.2, Math.min(1, 1 + varied))
   })
   write('clearcoatMap', (d, i) => {
     const s = foilStrength(d, i)
@@ -776,13 +773,14 @@ export default function Book3D({
     return [
       // 0: Right side (pages fore-edge)
       pageMaterial(PAGE_BASE),
-      // 1: Left side (spine)
+      // 1: Left side (spine) - same board as the front, handled a little more
       new MeshPhysicalMaterial({
         map: spineTexture,
         bumpMap: grainMap,
         bumpScale: spec.bumpScale,
-        roughness: Math.min(0.9, spec.roughness + 0.1),
-        metalness: spec.metalness,
+        color: '#ffffff',
+        roughness: Math.min(0.9, COVER_BASE_ROUGHNESS + 0.1),
+        metalness: 0,
         clearcoat: spec.clearcoat * 0.6,
         clearcoatRoughness: Math.min(0.6, spec.clearcoatRoughness + 0.15),
         envMapIntensity: 0.3,
@@ -797,11 +795,11 @@ export default function Book3D({
         bumpMap: grainMap,
         bumpScale: spec.bumpScale,
         color: '#ffffff',
-        // These scalars are the ceilings; the maps carry every per-pixel
-        // decision and are normalised so the products land on the intended
-        // values. Without maps they fall back to the flat board values.
+        // The scalar is the ceiling and the maps carry every per-pixel decision.
+        // With masks, metalness lands the board at exactly 0 and the stamped
+        // foil at 0.8; without masks the board has to carry that itself.
         metalness: foilMasks ? FOIL_METALNESS : CLOTH_METALNESS,
-        roughness: foilMasks ? COVER_ROUGHNESS_CEILING : spec.roughness,
+        roughness: COVER_BASE_ROUGHNESS,
         metalnessMap: foilMasks?.metalnessMap,
         roughnessMap: foilMasks?.roughnessMap,
         clearcoat: foilMasks ? FOIL_CLEARCOAT : spec.clearcoat,
@@ -815,8 +813,8 @@ export default function Book3D({
         color: spineColor,
         bumpMap: grainMap,
         bumpScale: spec.bumpScale,
-        roughness: Math.min(0.95, spec.roughness + 0.16),
-        metalness: spec.metalness,
+        roughness: Math.min(0.95, COVER_BASE_ROUGHNESS + 0.16),
+        metalness: 0,
         clearcoat: spec.clearcoat * 0.3,
         clearcoatRoughness: Math.min(0.7, spec.clearcoatRoughness + 0.25),
         envMapIntensity: 0.25,
